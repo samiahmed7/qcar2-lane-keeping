@@ -1,0 +1,28 @@
+# Colcon build artifacts
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+*.egg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# ROS data (rosbags, transient camera dumps)
+*.bag
+*.db3
+*.rosbag2
+
+# Local-only calibration overrides (uncomment if you decide ipm.yaml is per-camera)
+# src/qcar2_line_tracker/config/ipm.yaml

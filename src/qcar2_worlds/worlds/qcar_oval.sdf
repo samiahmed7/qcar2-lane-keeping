@@ -1,0 +1,2039 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="qcar_oval">
+
+    <physics name="1ms" type="ignored">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system"           name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-user-commands-system"     name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-sensors-system"           name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-imu-system"               name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-contact-system"           name="gz::sim::systems::Contact"/>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 20 0 0 0</pose>
+      <diffuse>0.9 0.9 0.9 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <attenuation>
+        <range>1000</range><constant>0.9</constant>
+        <linear>0.01</linear><quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.3 0.1 -0.9</direction>
+    </light>
+
+    <!-- Ground plane -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>200 200</size></plane></geometry>
+          <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name='m0'><static>true</static>
+      <pose>0.0000 -6.0000 0.00100 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m1'><static>true</static>
+      <pose>0.0000 -5.2000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m2'><static>true</static>
+      <pose>0.0000 -6.8000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m3'><static>true</static>
+      <pose>0.0000 -5.6000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m4'><static>true</static>
+      <pose>0.0000 -6.4000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m5'><static>true</static>
+      <pose>-3.8500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m6'><static>true</static>
+      <pose>-3.4000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m7'><static>true</static>
+      <pose>-2.9500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m8'><static>true</static>
+      <pose>-2.5000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m9'><static>true</static>
+      <pose>-2.0500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m10'><static>true</static>
+      <pose>-1.6000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m11'><static>true</static>
+      <pose>-1.1500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m12'><static>true</static>
+      <pose>-0.7000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m13'><static>true</static>
+      <pose>-0.2500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m14'><static>true</static>
+      <pose>0.2000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m15'><static>true</static>
+      <pose>0.6500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m16'><static>true</static>
+      <pose>1.1000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m17'><static>true</static>
+      <pose>1.5500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m18'><static>true</static>
+      <pose>2.0000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m19'><static>true</static>
+      <pose>2.4500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m20'><static>true</static>
+      <pose>2.9000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m21'><static>true</static>
+      <pose>3.3500 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m22'><static>true</static>
+      <pose>3.8000 -6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m23'><static>true</static>
+      <pose>0.0000 6.0000 0.00100 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m24'><static>true</static>
+      <pose>0.0000 5.2000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m25'><static>true</static>
+      <pose>0.0000 6.8000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m26'><static>true</static>
+      <pose>0.0000 5.6000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m27'><static>true</static>
+      <pose>0.0000 6.4000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>8.6000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m28'><static>true</static>
+      <pose>-3.8500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m29'><static>true</static>
+      <pose>-3.4000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m30'><static>true</static>
+      <pose>-2.9500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m31'><static>true</static>
+      <pose>-2.5000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m32'><static>true</static>
+      <pose>-2.0500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m33'><static>true</static>
+      <pose>-1.6000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m34'><static>true</static>
+      <pose>-1.1500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m35'><static>true</static>
+      <pose>-0.7000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m36'><static>true</static>
+      <pose>-0.2500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m37'><static>true</static>
+      <pose>0.2000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m38'><static>true</static>
+      <pose>0.6500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m39'><static>true</static>
+      <pose>1.1000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m40'><static>true</static>
+      <pose>1.5500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m41'><static>true</static>
+      <pose>2.0000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m42'><static>true</static>
+      <pose>2.4500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m43'><static>true</static>
+      <pose>2.9000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m44'><static>true</static>
+      <pose>3.3500 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m45'><static>true</static>
+      <pose>3.8000 6.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3000 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m46'><static>true</static>
+      <pose>6.0000 0.0000 0.00100 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>1.6000 8.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m47'><static>true</static>
+      <pose>5.2000 0.0000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0500 8.6000 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m48'><static>true</static>
+      <pose>6.8000 0.0000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0500 8.6000 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m49'><static>true</static>
+      <pose>5.6000 0.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 8.6000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m50'><static>true</static>
+      <pose>6.4000 0.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 8.6000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m51'><static>true</static>
+      <pose>6.0000 -3.8500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m52'><static>true</static>
+      <pose>6.0000 -3.4000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m53'><static>true</static>
+      <pose>6.0000 -2.9500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m54'><static>true</static>
+      <pose>6.0000 -2.5000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m55'><static>true</static>
+      <pose>6.0000 -2.0500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m56'><static>true</static>
+      <pose>6.0000 -1.6000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m57'><static>true</static>
+      <pose>6.0000 -1.1500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m58'><static>true</static>
+      <pose>6.0000 -0.7000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m59'><static>true</static>
+      <pose>6.0000 -0.2500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m60'><static>true</static>
+      <pose>6.0000 0.2000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m61'><static>true</static>
+      <pose>6.0000 0.6500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m62'><static>true</static>
+      <pose>6.0000 1.1000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m63'><static>true</static>
+      <pose>6.0000 1.5500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m64'><static>true</static>
+      <pose>6.0000 2.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m65'><static>true</static>
+      <pose>6.0000 2.4500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m66'><static>true</static>
+      <pose>6.0000 2.9000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m67'><static>true</static>
+      <pose>6.0000 3.3500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m68'><static>true</static>
+      <pose>6.0000 3.8000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m69'><static>true</static>
+      <pose>-6.0000 0.0000 0.00100 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>1.6000 8.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m70'><static>true</static>
+      <pose>-5.2000 0.0000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0500 8.6000 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m71'><static>true</static>
+      <pose>-6.8000 0.0000 0.04000 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0500 8.6000 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m72'><static>true</static>
+      <pose>-5.6000 0.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 8.6000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m73'><static>true</static>
+      <pose>-6.4000 0.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 8.6000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m74'><static>true</static>
+      <pose>-6.0000 -3.8500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m75'><static>true</static>
+      <pose>-6.0000 -3.4000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m76'><static>true</static>
+      <pose>-6.0000 -2.9500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m77'><static>true</static>
+      <pose>-6.0000 -2.5000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m78'><static>true</static>
+      <pose>-6.0000 -2.0500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m79'><static>true</static>
+      <pose>-6.0000 -1.6000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m80'><static>true</static>
+      <pose>-6.0000 -1.1500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m81'><static>true</static>
+      <pose>-6.0000 -0.7000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m82'><static>true</static>
+      <pose>-6.0000 -0.2500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m83'><static>true</static>
+      <pose>-6.0000 0.2000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m84'><static>true</static>
+      <pose>-6.0000 0.6500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m85'><static>true</static>
+      <pose>-6.0000 1.1000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m86'><static>true</static>
+      <pose>-6.0000 1.5500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m87'><static>true</static>
+      <pose>-6.0000 2.0000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m88'><static>true</static>
+      <pose>-6.0000 2.4500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m89'><static>true</static>
+      <pose>-6.0000 2.9000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m90'><static>true</static>
+      <pose>-6.0000 3.3500 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m91'><static>true</static>
+      <pose>-6.0000 3.8000 0.00200 0 0 0.00000</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.0600 0.3000 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m92'><static>true</static>
+      <pose>4.1569 -5.9938 0.00100 0 0 0.07854</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m93'><static>true</static>
+      <pose>4.0942 -5.1963 0.04000 0 0 0.07854</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m94'><static>true</static>
+      <pose>4.2197 -6.7914 0.04000 0 0 0.07854</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m95'><static>true</static>
+      <pose>4.1255 -5.5951 0.00200 0 0 0.07854</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m96'><static>true</static>
+      <pose>4.1883 -6.3926 0.00200 0 0 0.07854</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m97'><static>true</static>
+      <pose>4.1569 -5.9938 0.00200 0 0 0.07854</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m98'><static>true</static>
+      <pose>4.4669 -5.9447 0.00100 0 0 0.23562</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m99'><static>true</static>
+      <pose>4.2801 -5.1668 0.04000 0 0 0.23562</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m100'><static>true</static>
+      <pose>4.6536 -6.7226 0.04000 0 0 0.23562</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m101'><static>true</static>
+      <pose>4.3735 -5.5558 0.00200 0 0 0.23562</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m102'><static>true</static>
+      <pose>4.5603 -6.3337 0.00200 0 0 0.23562</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m103'><static>true</static>
+      <pose>4.4669 -5.9447 0.00200 0 0 0.23562</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m104'><static>true</static>
+      <pose>4.7654 -5.8478 0.00100 0 0 0.39270</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m105'><static>true</static>
+      <pose>4.4592 -5.1087 0.04000 0 0 0.39270</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m106'><static>true</static>
+      <pose>5.0715 -6.5869 0.04000 0 0 0.39270</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m107'><static>true</static>
+      <pose>4.6123 -5.4782 0.00200 0 0 0.39270</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m108'><static>true</static>
+      <pose>4.9184 -6.2173 0.00200 0 0 0.39270</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m109'><static>true</static>
+      <pose>4.7654 -5.8478 0.00200 0 0 0.39270</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m110'><static>true</static>
+      <pose>5.0450 -5.7053 0.00100 0 0 0.54978</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m111'><static>true</static>
+      <pose>4.6270 -5.0232 0.04000 0 0 0.54978</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m112'><static>true</static>
+      <pose>5.4630 -6.3874 0.04000 0 0 0.54978</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m113'><static>true</static>
+      <pose>4.8360 -5.3642 0.00200 0 0 0.54978</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m114'><static>true</static>
+      <pose>5.2540 -6.0463 0.00200 0 0 0.54978</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m115'><static>true</static>
+      <pose>5.0450 -5.7053 0.00200 0 0 0.54978</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m116'><static>true</static>
+      <pose>5.2989 -5.5208 0.00100 0 0 0.70686</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m117'><static>true</static>
+      <pose>4.7793 -4.9125 0.04000 0 0 0.70686</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m118'><static>true</static>
+      <pose>5.8185 -6.1291 0.04000 0 0 0.70686</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m119'><static>true</static>
+      <pose>5.0391 -5.2166 0.00200 0 0 0.70686</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m120'><static>true</static>
+      <pose>5.5587 -5.8250 0.00200 0 0 0.70686</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m121'><static>true</static>
+      <pose>5.2989 -5.5208 0.00200 0 0 0.70686</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m122'><static>true</static>
+      <pose>5.5208 -5.2989 0.00100 0 0 0.86394</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m123'><static>true</static>
+      <pose>4.9125 -4.7793 0.04000 0 0 0.86394</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m124'><static>true</static>
+      <pose>6.1291 -5.8185 0.04000 0 0 0.86394</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m125'><static>true</static>
+      <pose>5.2166 -5.0391 0.00200 0 0 0.86394</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m126'><static>true</static>
+      <pose>5.8250 -5.5587 0.00200 0 0 0.86394</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m127'><static>true</static>
+      <pose>5.5208 -5.2989 0.00200 0 0 0.86394</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m128'><static>true</static>
+      <pose>5.7053 -5.0450 0.00100 0 0 1.02102</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m129'><static>true</static>
+      <pose>5.0232 -4.6270 0.04000 0 0 1.02102</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m130'><static>true</static>
+      <pose>6.3874 -5.4630 0.04000 0 0 1.02102</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m131'><static>true</static>
+      <pose>5.3642 -4.8360 0.00200 0 0 1.02102</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m132'><static>true</static>
+      <pose>6.0463 -5.2540 0.00200 0 0 1.02102</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m133'><static>true</static>
+      <pose>5.7053 -5.0450 0.00200 0 0 1.02102</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m134'><static>true</static>
+      <pose>5.8478 -4.7654 0.00100 0 0 1.17810</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m135'><static>true</static>
+      <pose>5.1087 -4.4592 0.04000 0 0 1.17810</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m136'><static>true</static>
+      <pose>6.5869 -5.0715 0.04000 0 0 1.17810</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m137'><static>true</static>
+      <pose>5.4782 -4.6123 0.00200 0 0 1.17810</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m138'><static>true</static>
+      <pose>6.2173 -4.9184 0.00200 0 0 1.17810</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m139'><static>true</static>
+      <pose>5.8478 -4.7654 0.00200 0 0 1.17810</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m140'><static>true</static>
+      <pose>5.9447 -4.4669 0.00100 0 0 1.33518</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m141'><static>true</static>
+      <pose>5.1668 -4.2801 0.04000 0 0 1.33518</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m142'><static>true</static>
+      <pose>6.7226 -4.6536 0.04000 0 0 1.33518</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m143'><static>true</static>
+      <pose>5.5558 -4.3735 0.00200 0 0 1.33518</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m144'><static>true</static>
+      <pose>6.3337 -4.5603 0.00200 0 0 1.33518</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m145'><static>true</static>
+      <pose>5.9447 -4.4669 0.00200 0 0 1.33518</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m146'><static>true</static>
+      <pose>5.9938 -4.1569 0.00100 0 0 1.49226</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m147'><static>true</static>
+      <pose>5.1963 -4.0942 0.04000 0 0 1.49226</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m148'><static>true</static>
+      <pose>6.7914 -4.2197 0.04000 0 0 1.49226</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m149'><static>true</static>
+      <pose>5.5951 -4.1255 0.00200 0 0 1.49226</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m150'><static>true</static>
+      <pose>6.3926 -4.1883 0.00200 0 0 1.49226</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m151'><static>true</static>
+      <pose>5.9938 -4.1569 0.00200 0 0 1.49226</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m152'><static>true</static>
+      <pose>5.9938 4.1569 0.00100 0 0 1.64934</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m153'><static>true</static>
+      <pose>5.1963 4.0942 0.04000 0 0 1.64934</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m154'><static>true</static>
+      <pose>6.7914 4.2197 0.04000 0 0 1.64934</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m155'><static>true</static>
+      <pose>5.5951 4.1255 0.00200 0 0 1.64934</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m156'><static>true</static>
+      <pose>6.3926 4.1883 0.00200 0 0 1.64934</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m157'><static>true</static>
+      <pose>5.9938 4.1569 0.00200 0 0 1.64934</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m158'><static>true</static>
+      <pose>5.9447 4.4669 0.00100 0 0 1.80642</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m159'><static>true</static>
+      <pose>5.1668 4.2801 0.04000 0 0 1.80642</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m160'><static>true</static>
+      <pose>6.7226 4.6536 0.04000 0 0 1.80642</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m161'><static>true</static>
+      <pose>5.5558 4.3735 0.00200 0 0 1.80642</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m162'><static>true</static>
+      <pose>6.3337 4.5603 0.00200 0 0 1.80642</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m163'><static>true</static>
+      <pose>5.9447 4.4669 0.00200 0 0 1.80642</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m164'><static>true</static>
+      <pose>5.8478 4.7654 0.00100 0 0 1.96350</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m165'><static>true</static>
+      <pose>5.1087 4.4592 0.04000 0 0 1.96350</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m166'><static>true</static>
+      <pose>6.5869 5.0715 0.04000 0 0 1.96350</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m167'><static>true</static>
+      <pose>5.4782 4.6123 0.00200 0 0 1.96350</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m168'><static>true</static>
+      <pose>6.2173 4.9184 0.00200 0 0 1.96350</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m169'><static>true</static>
+      <pose>5.8478 4.7654 0.00200 0 0 1.96350</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m170'><static>true</static>
+      <pose>5.7053 5.0450 0.00100 0 0 2.12058</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m171'><static>true</static>
+      <pose>5.0232 4.6270 0.04000 0 0 2.12058</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m172'><static>true</static>
+      <pose>6.3874 5.4630 0.04000 0 0 2.12058</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m173'><static>true</static>
+      <pose>5.3642 4.8360 0.00200 0 0 2.12058</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m174'><static>true</static>
+      <pose>6.0463 5.2540 0.00200 0 0 2.12058</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m175'><static>true</static>
+      <pose>5.7053 5.0450 0.00200 0 0 2.12058</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m176'><static>true</static>
+      <pose>5.5208 5.2989 0.00100 0 0 2.27765</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m177'><static>true</static>
+      <pose>4.9125 4.7793 0.04000 0 0 2.27765</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m178'><static>true</static>
+      <pose>6.1291 5.8185 0.04000 0 0 2.27765</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m179'><static>true</static>
+      <pose>5.2166 5.0391 0.00200 0 0 2.27765</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m180'><static>true</static>
+      <pose>5.8250 5.5587 0.00200 0 0 2.27765</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m181'><static>true</static>
+      <pose>5.5208 5.2989 0.00200 0 0 2.27765</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m182'><static>true</static>
+      <pose>5.2989 5.5208 0.00100 0 0 2.43473</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m183'><static>true</static>
+      <pose>4.7793 4.9125 0.04000 0 0 2.43473</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m184'><static>true</static>
+      <pose>5.8185 6.1291 0.04000 0 0 2.43473</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m185'><static>true</static>
+      <pose>5.0391 5.2166 0.00200 0 0 2.43473</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m186'><static>true</static>
+      <pose>5.5587 5.8250 0.00200 0 0 2.43473</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m187'><static>true</static>
+      <pose>5.2989 5.5208 0.00200 0 0 2.43473</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m188'><static>true</static>
+      <pose>5.0450 5.7053 0.00100 0 0 2.59181</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m189'><static>true</static>
+      <pose>4.6270 5.0232 0.04000 0 0 2.59181</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m190'><static>true</static>
+      <pose>5.4630 6.3874 0.04000 0 0 2.59181</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m191'><static>true</static>
+      <pose>4.8360 5.3642 0.00200 0 0 2.59181</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m192'><static>true</static>
+      <pose>5.2540 6.0463 0.00200 0 0 2.59181</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m193'><static>true</static>
+      <pose>5.0450 5.7053 0.00200 0 0 2.59181</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m194'><static>true</static>
+      <pose>4.7654 5.8478 0.00100 0 0 2.74889</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m195'><static>true</static>
+      <pose>4.4592 5.1087 0.04000 0 0 2.74889</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m196'><static>true</static>
+      <pose>5.0715 6.5869 0.04000 0 0 2.74889</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m197'><static>true</static>
+      <pose>4.6123 5.4782 0.00200 0 0 2.74889</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m198'><static>true</static>
+      <pose>4.9184 6.2173 0.00200 0 0 2.74889</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m199'><static>true</static>
+      <pose>4.7654 5.8478 0.00200 0 0 2.74889</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m200'><static>true</static>
+      <pose>4.4669 5.9447 0.00100 0 0 2.90597</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m201'><static>true</static>
+      <pose>4.2801 5.1668 0.04000 0 0 2.90597</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m202'><static>true</static>
+      <pose>4.6536 6.7226 0.04000 0 0 2.90597</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m203'><static>true</static>
+      <pose>4.3735 5.5558 0.00200 0 0 2.90597</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m204'><static>true</static>
+      <pose>4.5603 6.3337 0.00200 0 0 2.90597</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m205'><static>true</static>
+      <pose>4.4669 5.9447 0.00200 0 0 2.90597</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m206'><static>true</static>
+      <pose>4.1569 5.9938 0.00100 0 0 3.06305</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m207'><static>true</static>
+      <pose>4.0942 5.1963 0.04000 0 0 3.06305</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m208'><static>true</static>
+      <pose>4.2197 6.7914 0.04000 0 0 3.06305</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m209'><static>true</static>
+      <pose>4.1255 5.5951 0.00200 0 0 3.06305</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m210'><static>true</static>
+      <pose>4.1883 6.3926 0.00200 0 0 3.06305</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m211'><static>true</static>
+      <pose>4.1569 5.9938 0.00200 0 0 3.06305</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m212'><static>true</static>
+      <pose>-4.1569 5.9938 0.00100 0 0 3.22013</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m213'><static>true</static>
+      <pose>-4.0942 5.1963 0.04000 0 0 3.22013</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m214'><static>true</static>
+      <pose>-4.2197 6.7914 0.04000 0 0 3.22013</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m215'><static>true</static>
+      <pose>-4.1255 5.5951 0.00200 0 0 3.22013</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m216'><static>true</static>
+      <pose>-4.1883 6.3926 0.00200 0 0 3.22013</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m217'><static>true</static>
+      <pose>-4.1569 5.9938 0.00200 0 0 3.22013</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m218'><static>true</static>
+      <pose>-4.4669 5.9447 0.00100 0 0 3.37721</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m219'><static>true</static>
+      <pose>-4.2801 5.1668 0.04000 0 0 3.37721</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m220'><static>true</static>
+      <pose>-4.6536 6.7226 0.04000 0 0 3.37721</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m221'><static>true</static>
+      <pose>-4.3735 5.5558 0.00200 0 0 3.37721</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m222'><static>true</static>
+      <pose>-4.5603 6.3337 0.00200 0 0 3.37721</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m223'><static>true</static>
+      <pose>-4.4669 5.9447 0.00200 0 0 3.37721</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m224'><static>true</static>
+      <pose>-4.7654 5.8478 0.00100 0 0 3.53429</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m225'><static>true</static>
+      <pose>-4.4592 5.1087 0.04000 0 0 3.53429</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m226'><static>true</static>
+      <pose>-5.0715 6.5869 0.04000 0 0 3.53429</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m227'><static>true</static>
+      <pose>-4.6123 5.4782 0.00200 0 0 3.53429</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m228'><static>true</static>
+      <pose>-4.9184 6.2173 0.00200 0 0 3.53429</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m229'><static>true</static>
+      <pose>-4.7654 5.8478 0.00200 0 0 3.53429</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m230'><static>true</static>
+      <pose>-5.0450 5.7053 0.00100 0 0 3.69137</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m231'><static>true</static>
+      <pose>-4.6270 5.0232 0.04000 0 0 3.69137</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m232'><static>true</static>
+      <pose>-5.4630 6.3874 0.04000 0 0 3.69137</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m233'><static>true</static>
+      <pose>-4.8360 5.3642 0.00200 0 0 3.69137</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m234'><static>true</static>
+      <pose>-5.2540 6.0463 0.00200 0 0 3.69137</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m235'><static>true</static>
+      <pose>-5.0450 5.7053 0.00200 0 0 3.69137</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m236'><static>true</static>
+      <pose>-5.2989 5.5208 0.00100 0 0 3.84845</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m237'><static>true</static>
+      <pose>-4.7793 4.9125 0.04000 0 0 3.84845</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m238'><static>true</static>
+      <pose>-5.8185 6.1291 0.04000 0 0 3.84845</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m239'><static>true</static>
+      <pose>-5.0391 5.2166 0.00200 0 0 3.84845</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m240'><static>true</static>
+      <pose>-5.5587 5.8250 0.00200 0 0 3.84845</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m241'><static>true</static>
+      <pose>-5.2989 5.5208 0.00200 0 0 3.84845</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m242'><static>true</static>
+      <pose>-5.5208 5.2989 0.00100 0 0 4.00553</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m243'><static>true</static>
+      <pose>-4.9125 4.7793 0.04000 0 0 4.00553</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m244'><static>true</static>
+      <pose>-6.1291 5.8185 0.04000 0 0 4.00553</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m245'><static>true</static>
+      <pose>-5.2166 5.0391 0.00200 0 0 4.00553</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m246'><static>true</static>
+      <pose>-5.8250 5.5587 0.00200 0 0 4.00553</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m247'><static>true</static>
+      <pose>-5.5208 5.2989 0.00200 0 0 4.00553</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m248'><static>true</static>
+      <pose>-5.7053 5.0450 0.00100 0 0 4.16261</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m249'><static>true</static>
+      <pose>-5.0232 4.6270 0.04000 0 0 4.16261</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m250'><static>true</static>
+      <pose>-6.3874 5.4630 0.04000 0 0 4.16261</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m251'><static>true</static>
+      <pose>-5.3642 4.8360 0.00200 0 0 4.16261</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m252'><static>true</static>
+      <pose>-6.0463 5.2540 0.00200 0 0 4.16261</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m253'><static>true</static>
+      <pose>-5.7053 5.0450 0.00200 0 0 4.16261</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m254'><static>true</static>
+      <pose>-5.8478 4.7654 0.00100 0 0 4.31969</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m255'><static>true</static>
+      <pose>-5.1087 4.4592 0.04000 0 0 4.31969</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m256'><static>true</static>
+      <pose>-6.5869 5.0715 0.04000 0 0 4.31969</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m257'><static>true</static>
+      <pose>-5.4782 4.6123 0.00200 0 0 4.31969</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m258'><static>true</static>
+      <pose>-6.2173 4.9184 0.00200 0 0 4.31969</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m259'><static>true</static>
+      <pose>-5.8478 4.7654 0.00200 0 0 4.31969</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m260'><static>true</static>
+      <pose>-5.9447 4.4669 0.00100 0 0 4.47677</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m261'><static>true</static>
+      <pose>-5.1668 4.2801 0.04000 0 0 4.47677</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m262'><static>true</static>
+      <pose>-6.7226 4.6536 0.04000 0 0 4.47677</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m263'><static>true</static>
+      <pose>-5.5558 4.3735 0.00200 0 0 4.47677</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m264'><static>true</static>
+      <pose>-6.3337 4.5603 0.00200 0 0 4.47677</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m265'><static>true</static>
+      <pose>-5.9447 4.4669 0.00200 0 0 4.47677</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m266'><static>true</static>
+      <pose>-5.9938 4.1569 0.00100 0 0 4.63385</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m267'><static>true</static>
+      <pose>-5.1963 4.0942 0.04000 0 0 4.63385</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m268'><static>true</static>
+      <pose>-6.7914 4.2197 0.04000 0 0 4.63385</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m269'><static>true</static>
+      <pose>-5.5951 4.1255 0.00200 0 0 4.63385</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m270'><static>true</static>
+      <pose>-6.3926 4.1883 0.00200 0 0 4.63385</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m271'><static>true</static>
+      <pose>-5.9938 4.1569 0.00200 0 0 4.63385</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m272'><static>true</static>
+      <pose>-5.9938 -4.1569 0.00100 0 0 4.79093</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m273'><static>true</static>
+      <pose>-5.1963 -4.0942 0.04000 0 0 4.79093</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m274'><static>true</static>
+      <pose>-6.7914 -4.2197 0.04000 0 0 4.79093</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m275'><static>true</static>
+      <pose>-5.5951 -4.1255 0.00200 0 0 4.79093</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m276'><static>true</static>
+      <pose>-6.3926 -4.1883 0.00200 0 0 4.79093</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m277'><static>true</static>
+      <pose>-5.9938 -4.1569 0.00200 0 0 4.79093</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m278'><static>true</static>
+      <pose>-5.9447 -4.4669 0.00100 0 0 4.94801</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m279'><static>true</static>
+      <pose>-5.1668 -4.2801 0.04000 0 0 4.94801</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m280'><static>true</static>
+      <pose>-6.7226 -4.6536 0.04000 0 0 4.94801</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m281'><static>true</static>
+      <pose>-5.5558 -4.3735 0.00200 0 0 4.94801</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m282'><static>true</static>
+      <pose>-6.3337 -4.5603 0.00200 0 0 4.94801</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m283'><static>true</static>
+      <pose>-5.9447 -4.4669 0.00200 0 0 4.94801</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m284'><static>true</static>
+      <pose>-5.8478 -4.7654 0.00100 0 0 5.10509</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m285'><static>true</static>
+      <pose>-5.1087 -4.4592 0.04000 0 0 5.10509</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m286'><static>true</static>
+      <pose>-6.5869 -5.0715 0.04000 0 0 5.10509</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m287'><static>true</static>
+      <pose>-5.4782 -4.6123 0.00200 0 0 5.10509</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m288'><static>true</static>
+      <pose>-6.2173 -4.9184 0.00200 0 0 5.10509</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m289'><static>true</static>
+      <pose>-5.8478 -4.7654 0.00200 0 0 5.10509</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m290'><static>true</static>
+      <pose>-5.7053 -5.0450 0.00100 0 0 5.26217</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m291'><static>true</static>
+      <pose>-5.0232 -4.6270 0.04000 0 0 5.26217</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m292'><static>true</static>
+      <pose>-6.3874 -5.4630 0.04000 0 0 5.26217</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m293'><static>true</static>
+      <pose>-5.3642 -4.8360 0.00200 0 0 5.26217</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m294'><static>true</static>
+      <pose>-6.0463 -5.2540 0.00200 0 0 5.26217</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m295'><static>true</static>
+      <pose>-5.7053 -5.0450 0.00200 0 0 5.26217</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m296'><static>true</static>
+      <pose>-5.5208 -5.2989 0.00100 0 0 5.41925</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m297'><static>true</static>
+      <pose>-4.9125 -4.7793 0.04000 0 0 5.41925</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m298'><static>true</static>
+      <pose>-6.1291 -5.8185 0.04000 0 0 5.41925</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m299'><static>true</static>
+      <pose>-5.2166 -5.0391 0.00200 0 0 5.41925</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m300'><static>true</static>
+      <pose>-5.8250 -5.5587 0.00200 0 0 5.41925</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m301'><static>true</static>
+      <pose>-5.5208 -5.2989 0.00200 0 0 5.41925</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m302'><static>true</static>
+      <pose>-5.2989 -5.5208 0.00100 0 0 5.57633</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m303'><static>true</static>
+      <pose>-4.7793 -4.9125 0.04000 0 0 5.57633</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m304'><static>true</static>
+      <pose>-5.8185 -6.1291 0.04000 0 0 5.57633</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m305'><static>true</static>
+      <pose>-5.0391 -5.2166 0.00200 0 0 5.57633</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m306'><static>true</static>
+      <pose>-5.5587 -5.8250 0.00200 0 0 5.57633</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m307'><static>true</static>
+      <pose>-5.2989 -5.5208 0.00200 0 0 5.57633</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m308'><static>true</static>
+      <pose>-5.0450 -5.7053 0.00100 0 0 5.73341</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m309'><static>true</static>
+      <pose>-4.6270 -5.0232 0.04000 0 0 5.73341</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m310'><static>true</static>
+      <pose>-5.4630 -6.3874 0.04000 0 0 5.73341</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m311'><static>true</static>
+      <pose>-4.8360 -5.3642 0.00200 0 0 5.73341</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m312'><static>true</static>
+      <pose>-5.2540 -6.0463 0.00200 0 0 5.73341</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m313'><static>true</static>
+      <pose>-5.0450 -5.7053 0.00200 0 0 5.73341</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m314'><static>true</static>
+      <pose>-4.7654 -5.8478 0.00100 0 0 5.89049</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m315'><static>true</static>
+      <pose>-4.4592 -5.1087 0.04000 0 0 5.89049</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m316'><static>true</static>
+      <pose>-5.0715 -6.5869 0.04000 0 0 5.89049</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m317'><static>true</static>
+      <pose>-4.6123 -5.4782 0.00200 0 0 5.89049</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m318'><static>true</static>
+      <pose>-4.9184 -6.2173 0.00200 0 0 5.89049</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m319'><static>true</static>
+      <pose>-4.7654 -5.8478 0.00200 0 0 5.89049</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m320'><static>true</static>
+      <pose>-4.4669 -5.9447 0.00100 0 0 6.04757</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m321'><static>true</static>
+      <pose>-4.2801 -5.1668 0.04000 0 0 6.04757</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m322'><static>true</static>
+      <pose>-4.6536 -6.7226 0.04000 0 0 6.04757</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m323'><static>true</static>
+      <pose>-4.3735 -5.5558 0.00200 0 0 6.04757</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m324'><static>true</static>
+      <pose>-4.5603 -6.3337 0.00200 0 0 6.04757</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m325'><static>true</static>
+      <pose>-4.4669 -5.9447 0.00200 0 0 6.04757</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m326'><static>true</static>
+      <pose>-4.1569 -5.9938 0.00100 0 0 6.20465</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.3519 1.6000 0.0010</size></box></geometry>
+          <material><ambient>0.12 0.12 0.12 1</ambient><diffuse>0.12 0.12 0.12 1</diffuse></material>
+        </visual></link></model>
+    <model name='m327'><static>true</static>
+      <pose>-4.0942 -5.1963 0.04000 0 0 6.20465</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2111 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m328'><static>true</static>
+      <pose>-4.2197 -6.7914 0.04000 0 0 6.20465</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4926 0.0500 0.0800</size></box></geometry>
+          <material><ambient>0.9 0.35 0.0 1</ambient><diffuse>0.9 0.35 0.0 1</diffuse></material>
+        </visual></link></model>
+    <model name='m329'><static>true</static>
+      <pose>-4.1255 -5.5951 0.00200 0 0 6.20465</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2815 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m330'><static>true</static>
+      <pose>-4.1883 -6.3926 0.00200 0 0 6.20465</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.4222 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+    <model name='m331'><static>true</static>
+      <pose>-4.1569 -5.9938 0.00200 0 0 6.20465</pose>
+      <link name='l'>
+        <visual name='v'><geometry><box><size>0.2042 0.0600 0.0010</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual></link></model>
+  </world>
+</sdf>
+
