@@ -30,17 +30,30 @@ ros2 launch qcar2_autonomy lane_perception.launch.py
 
 ```bash
 # Terminal 1 - simulation
-source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
-export GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/ros/jazzy/opt/gz_sim_vendor/lib
-export GZ_SIM_RESOURCE_PATH=$(ros2 pkg prefix qcar2)/share:$GZ_SIM_RESOURCE_PATH
-ros2 launch qcar2 simulation.launch.py
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch qcar2_bringup sim_bringup.launch.py [headless:=true/false]
 
-# Terminal 2 - main driving stack
-source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
-ros2 launch qcar2_line_tracker lane_filter_avoid.launch.py
+Terminal 2 — obstacle
 
-# Terminal 3 - debug viewer
-ros2 run rqt_image_view rqt_image_view   # select /qcar2/lane_filter/debug
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+./scripts/spawn_box.sh 2.0 -6.20
+
+Terminal 3 — autonomy
+
+cd ~/rosbot_ws
+./scripts/run_autonomy.sh
+Wait for: Autonomy up. Detector loads in ~10 s
+
+Terminal 4 — viewer
+
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+python3 scripts/view_overlay.py
 ```
 
 ## Node Ownership
