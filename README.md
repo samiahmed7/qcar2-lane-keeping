@@ -3,7 +3,7 @@
 ROS2 Jazzy + Gazebo Harmonic workspace for the Quanser QCar2 driving autonomously around a closed oval track.
 
 ## Quick start
-
+.
 ```bash
 # Terminal 1 — simulation
 source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
