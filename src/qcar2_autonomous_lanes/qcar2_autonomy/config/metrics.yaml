@@ -1,0 +1,11 @@
+metrics_placeholder:
+  ros__parameters:
+    use_sim_time: true
+    camera_topic: /qcar2/front_camera/image
+    lane_model_topic: /qcar2/lane/model
+    debug_image_topic: /qcar2/lane/debug_image
+    lidar_topic: /qcar2/lidar/scan
+    obstacle_state_topic: /qcar2/obstacle/state
+    behavior_state_topic: /qcar2/behavior/state
+    cmd_vel_topic: /model/qcar2/cmd_vel
+    output_directory: metrics

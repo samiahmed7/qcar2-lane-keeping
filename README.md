@@ -1,122 +1,249 @@
-# QCar2 Lane-Keeping Simulation
+# QCar2 Lane-Change Simulation
 
-ROS2 Jazzy + Gazebo Harmonic workspace for the Quanser QCar2 driving autonomously around a closed oval track.
+ROS2 Jazzy + Gazebo Harmonic workspace for a Quanser QCar2 driving on an oval
+track, staying between white lane markings, stopping for LiDAR obstacles, and
+changing lanes when the avoid stack sees a forward obstacle.
 
-## Quick start
+## Current Autonomous Lanes Work
+
+The newer scaffold lives in `src/qcar2_autonomous_lanes`. Phase 1 perception is
+implemented in `qcar2_autonomy/qcar2_autonomy/bev_lane_detector_node.py`.
+
+It subscribes to `/qcar2/front_camera/image`, detects the three white lane
+lines, targets the right lane center between the middle dashed line and right
+solid line, and publishes:
+
+- `/qcar2/lane/model` (`qcar2_msgs/msg/LaneModel`)
+- `/qcar2/lane/debug_image` (`sensor_msgs/msg/Image`)
+
+Build and run perception:
 
 ```bash
-# Terminal 1 — simulation
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-select qcar2_msgs qcar2_autonomy
+source install/setup.bash
+ros2 launch qcar2_autonomy lane_perception.launch.py
+```
+
+## Quick Start
+
+```bash
+# Terminal 1 - simulation
 source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
 export GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/ros/jazzy/opt/gz_sim_vendor/lib
 export GZ_SIM_RESOURCE_PATH=$(ros2 pkg prefix qcar2)/share:$GZ_SIM_RESOURCE_PATH
 ros2 launch qcar2 simulation.launch.py
 
-# Terminal 2 — lane keeping driver (default, smooth, no calibration needed)
+# Terminal 2 - main driving stack
 source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
-ros2 launch qcar2_line_tracker lane_follower.launch.py
+ros2 launch qcar2_line_tracker lane_filter_avoid.launch.py
 
-# Terminal 3 — debug viewer
-ros2 run rqt_image_view rqt_image_view   # select /qcar2/debug/image
+# Terminal 3 - debug viewer
+ros2 run rqt_image_view rqt_image_view   # select /qcar2/lane_filter/debug
 ```
 
-That's it — the car drives itself around the oval, staying in the right lane between the centre dashes and the outer solid line.
+## Node Ownership
 
-## What's in the workspace
+Each node has one job:
 
-```
-rosbot_ws/
-├── src/
-│   ├── qcar2/                    Robot description (URDF + meshes + sim launch)
-│   ├── qcar2_worlds/             Parametric oval track + variants
-│   │   ├── worlds/qcar_oval.sdf      default — narrow lane, frequent dashes
-│   │   └── worlds/qcar_oval_wide.sdf wider lane, longer dash gaps (stress test)
-│   └── qcar2_line_tracker/       Two lane-keeping pipelines
-│       ├── lane_follower.py          ★ DEFAULT — centroid + PD driver
-│       ├── lane_filter.py            EKF observer/driver (work-in-progress)
-│       ├── clothoid_ekf.py             Clothoid Extended Kalman Filter
-│       ├── lane_detector.py            Sliding-window line finder in BEV
-│       ├── ipm.py                      IPM warp utility
-│       └── ipm_calibrate.py            Click-to-calibrate tool for IPM
-├── README.md          (you are here)
-├── CHECKPOINT.md      Full technical reference + roadmap
-└── ISSUES_AND_FIXES.md
+| Node | Owns | Does not own |
+|---|---|---|
+| `lane_filter` | camera mask, multi-line identity, selected lane centreline, EKF, path tracking | behaviour decisions, final safety veto |
+| `lane_change_manager` | lane index, target lane index, lane-change state, smooth blend offset | image processing, steering control |
+| `safety_filter` | path-aware LiDAR swept-volume check, stale-command stop, final `/model/qcar2/cmd_vel` | lane perception, lane-change planning |
+| `ipm_calibrate` | one-off perspective calibration | driving |
+
+The command path is:
+
+```text
+lane_change_manager -> /qcar2/lane_selection
+lane_change_manager -> /qcar2/lane_target_offset
+lane_filter         -> /qcar2/cmd_vel_desired
+safety_filter       -> /model/qcar2/cmd_vel
 ```
 
-## The two lane-keeping drivers
+Only `safety_filter` should publish the real Gazebo drive command.
 
-### `lane_follower` — the default
+## Lane Identity
 
-The driver this README launches above. Simple and reliable:
-- White-mask the camera frame (HSV)
-- Find the leftmost and rightmost lane edges in a look-ahead band
-- Track lane width dynamically; tolerate dash gaps
-- EMA-smoothed midpoint → PD on pixel error
+The track has three white lane markings:
 
-No calibration needed. Tuned for our oval. **This is what the workspace is committed to use right now.**
+```text
+SOLID_LEFT     DASHED_MIDDLE     SOLID_RIGHT
+```
 
-### `lane_filter` — the EKF pipeline (in development)
+The centre marking is dashed in `qcar2_worlds/scripts/generate_track.py`, so
+the detector can identify it without relying on colour. `lane_filter` uses a
+multi-line detector instead of the old left-half/right-half detector:
 
-Same purpose, very different architecture:
-- Inverse-Perspective-Map the camera to a bird's-eye view (requires one-off calibration)
-- Sliding-window lane-line detection in BEV, seeded by EKF prediction
-- **Clothoid Extended Kalman Filter** consumes lane points + vehicle odometry, produces a clothoid lane model `y(s) = c0 + c1·s + (c2/2)·s² + (c3/6)·s³`
-- Confidence-aware: handles single-line scenarios, ambiguous detections, and full perception loss (COAST mode)
-- Stanley controller: `δ = k_head·c1 + atan(k_lat·c0/v) + k_ff·κ`
+```text
+BEV white mask
+  -> histogram peak finder
+  -> up to 3 sliding-window line tracks
+  -> solid/dashed classification
+  -> lane corridor selected by lane index
+```
 
-This is the architecture being matured for **real QCar2 hardware** and **multi-vehicle V2V** scenarios where the EKF's metric state, uncertainty signal, and prediction-through-dropouts properties become essential.
+Lane index convention:
 
-For now it's still being tuned, so the centroid driver is the documented default.
+| Lane index | Corridor |
+|---|---|
+| `0` | `DASHED_MIDDLE + SOLID_RIGHT` |
+| `1` | `SOLID_LEFT + DASHED_MIDDLE` |
 
-## Other launches
+With the current IPM calibration, the lane filter observes this corridor as
+about `0.69 m` wide. The lane-change manager uses that internal metric width as
+its initial shift distance and then keeps refining it from the observed line
+spacing.
+
+## Lane Change Commands
+
+`lane_filter_avoid.launch.py` enables automatic obstacle avoidance by default:
+when the front LiDAR range drops below `2.20 m` in lane `0`, the manager starts
+a left lane change into lane `1`. Manual requests are still available:
 
 ```bash
-# Drive on the wider-lane track (more challenging — bigger dash gaps)
-ros2 launch qcar2 simulation.launch.py world:=qcar_oval_wide y:=-6.275
+# Change one lane left
+ros2 topic pub --once /qcar2/lane_change_request std_msgs/msg/String "{data: LEFT}"
 
-# Run the EKF observer in parallel with the centroid driver (debug view only)
-ros2 run qcar2_line_tracker lane_filter
-# Then view /qcar2/lane_filter/debug
+# Change one lane right
+ros2 topic pub --once /qcar2/lane_change_request std_msgs/msg/String "{data: RIGHT}"
 
-# Run the EKF as the driver (must stop lane_follower first)
-ros2 launch qcar2_line_tracker lane_filter_drive.launch.py
+# Abort active shift back toward the current lane
+ros2 topic pub --once /qcar2/lane_change_request std_msgs/msg/String "{data: ABORT}"
 
-# Calibrate the IPM perspective transform (one-off)
+# Watch state, target lane, offset, LiDAR gate, and rejection reason
+ros2 topic echo /qcar2/lane_change_status
+```
+
+For a clean left change from the default right lane, the status should move
+through roughly:
+
+```text
+state=KEEP lane=0 target=0 offset=+0.000 scan=OK blocked=False
+state=PREPARE lane=0 target=1 offset=+0.000
+state=CHANGING lane=0 target=1 offset=+0.xxx
+state=KEEP lane=1 target=1 offset=+0.000
+```
+
+If it stays in `HOLD_TARGET`, watch `c0` and `meas_age`: perception has not yet
+accepted that the car is centred in the target lane.
+
+During a lane change, `lane_change_manager` publishes a smooth lateral blend.
+`lane_filter` converts that into blended centreline measurements between the
+current lane and target lane. This avoids the old one-frame role flip where the
+dashed middle line changed from one lane boundary to the other.
+
+If the debug/log output briefly shows `COAST` near the dashed middle line, that
+means the detector could not produce at least two centreline measurements for
+that frame. The current code keeps short identity memory and accepts weaker
+single-line evidence only while a lane change is active, so midpoint dropouts
+should be shorter and less sticky than before.
+
+## LiDAR Sanity Check
+
+The QCar2 LiDAR scans horizontally at roughly `0.19 m` above the ground. It will
+not detect painted lane lines, and it will not detect the low `0.08 m` track
+walls. Use a tall test box when checking obstacle detection:
+
+```bash
+# Terminal 1: sim
+ros2 launch qcar2 simulation.launch.py
+
+# Terminal 2: lane stack
+ros2 launch qcar2_line_tracker lane_filter_avoid.launch.py
+
+# Terminal 3: spawn a tall box directly in front of the default start pose
+ros2 launch qcar2_line_tracker lidar_test_obstacle.launch.py
+
+# Terminal 4: confirm scans and safety gate
+ros2 topic echo /qcar2/safety_status
+ros2 topic echo /qcar2/lane_change_status
+```
+
+If `/qcar2/safety_status` says `scan=MISSING`, the LiDAR bridge is not running
+or simulation is not up. If it says `scan=STALE`, the bridge stopped updating.
+Both states force the final drive command to zero. If it says `scan=OK` but
+the object is not showing in `arc_min`, `corridor_min`, `obj_*`, or
+`global_min`, it is probably below scan height, too close for the `0.15 m`
+LiDAR minimum range, or outside the sensor view. If the object appears at a
+consistent non-zero angle in `global_angle`, tune `front_angle_offset_deg` in
+`lane_filter_avoid.launch.py`.
+
+When `/qcar2/lane_filter/state` is fresh, the safety filter checks each LiDAR
+return against the EKF path corridor instead of a fixed straight-ahead box:
+
+```text
+y_path = c0 + c1*x + c2*x^2/2 + c3*x^3/6
+blocked if abs(y - y_path) <= vehicle_half_width + path_safety_margin
+```
+
+Default safety tuning starts braking when a point is inside that path corridor
+at `path_min < 1.80 m` and hard-stops below `1.20 m`. If the lane-filter state
+is stale or missing, safety falls back to the conservative car-centred corridor.
+The default path band is `0.18 m` (`0.10 m` simulated vehicle half-width plus
+`0.08 m` margin), based on the QCar2 URDF collision/visual width. The path
+check starts at `x=0.30 m`, roughly past the front bumper; closer points use
+only a narrow central near-body stop strip (`x <= 0.30 m`, `|y| <= 0.07 m`) so
+side returns while passing a box do not stop the car. `arc_min`, `corridor_min`,
+and `obj_*` are still reported for debugging, but in `mode=PATH` they do not
+stop the car unless a point overlaps the planned path. Seeing
+`mode=PATH path_min=1.10m blocked=True` means the LiDAR obstacle stop is
+working. Seeing `obj_*` or `corridor_min` near the old-lane obstacle while
+`path_min=inf blocked=False` means the car sees the object but can pass it.
+
+In the full avoid stack, obstacle avoidance should begin earlier than braking:
+`lane_change_manager` triggers the left lane change around a `2.20m` forward
+obstacle range, and `safety_filter` remains the final veto if the object still
+overlaps the driven path.
+
+`/qcar2/lane_change_status` also reports `meas_age`; lane changes only complete
+when the lane-filter measurement is fresh.
+
+For obstacle avoidance, the lane-change manager also estimates the nearest
+LiDAR obstacle cluster:
+
+```text
+obj_x    nearest forward face distance
+obj_y    lateral obstacle span in the car frame
+obj_w    estimated lateral obstacle width
+extra    temporary extra lane-change offset used for clearance
+```
+
+When `extra` is non-zero, the car does not aim only for lane `1` centre. It aims
+for lane `1` plus that extra left clearance and holds the offset until the
+obstacle is no longer ahead. The clearance target can grow during the maneuver
+as the LiDAR gets a better view of the obstacle face.
+added when the measured obstacle span actually requires it; if lane `1` centre
+has enough clearance, `extra` should stay `0.000`.
+
+## Other Launches
+
+```bash
+# Observer only: camera + lane_filter debug, no cmd_vel output
+ros2 launch qcar2_line_tracker lane_filter.launch.py
+
+# Calibrate the IPM perspective transform
 ros2 launch qcar2_line_tracker ipm_calibrate.launch.py
+
+# Drive on the wider-lane track
+ros2 launch qcar2 simulation.launch.py world:=qcar_oval_wide y:=-6.275
 ```
 
-## Generating track variants
-
-The track is procedural:
-
-```bash
-python3 src/qcar2_worlds/scripts/generate_track.py \
-    --lo 0.55 --tw 1.6 --dash-period 0.9 \
-    --world-name qcar_oval_custom \
-  > src/qcar2_worlds/worlds/qcar_oval_custom.sdf
-colcon build --packages-select qcar2_worlds --base-paths src
-```
-
-`--help` for all flags.
-
-## Key topics
+## Key Topics
 
 | Topic | Type | Carries |
 |---|---|---|
-| `/qcar2/front_camera/image` | sensor_msgs/Image | 640×480 30 Hz camera |
-| `/qcar2/lidar/scan` | sensor_msgs/LaserScan | 720-sample 360° lidar |
-| `/model/qcar2/cmd_vel` | geometry_msgs/Twist | drive command |
-| `/model/qcar2/odometry` | nav_msgs/Odometry | vehicle pose + velocity |
-| `/qcar2/debug/image` | sensor_msgs/Image | annotated centroid debug |
-| `/qcar2/lane_filter/debug` | sensor_msgs/Image | composite EKF debug view |
-| `/qcar2/lane_filter/state` | std_msgs/Float32MultiArray | `[c0, c1, c2, c3, lane_width_obs, age]` |
+| `/qcar2/front_camera/image` | `sensor_msgs/Image` | 640x480 camera |
+| `/qcar2/lidar/scan` | `sensor_msgs/LaserScan` | 720-sample 360 degree LiDAR |
+| `/qcar2/lane_filter/debug` | `sensor_msgs/Image` | camera + BEV + lane identity debug |
+| `/qcar2/lane_filter/state` | `std_msgs/Float32MultiArray` | `[c0, c1, c2, c3, lane_width_obs, age]` |
+| `/qcar2/lane_change_request` | `std_msgs/String` | `LEFT`, `RIGHT`, `ABORT`, `KEEP` |
+| `/qcar2/lane_selection` | `std_msgs/Int32MultiArray` | `[current_lane, target_lane, active, direction]` |
+| `/qcar2/lane_target_offset` | `std_msgs/Float32` | smooth lateral blend offset |
+| `/qcar2/cmd_vel_desired` | `geometry_msgs/Twist` | pre-safety drive command |
+| `/qcar2/safety_status` | `std_msgs/String` | LiDAR gate diagnostics |
+| `/model/qcar2/cmd_vel` | `geometry_msgs/Twist` | final Gazebo drive command |
 
-See [CHECKPOINT.md](CHECKPOINT.md) for the full technical reference, EKF architecture, mode states, and roadmap.
-
-## Roadmap
-
-- ☐ Phase A4 — finish tuning Clothoid EKF process/measurement noise
-- ☐ LiDAR safety filter (emergency stop)
-- ☐ Behaviour mode interface for V2V
-- ☐ Multi-vehicle namespacing
-- ☐ V2V messaging between leader and follower QCar2
-- ☐ Lane-change controller
+See [CHECKPOINT.md](CHECKPOINT.md) for the longer technical reference.

@@ -1,0 +1,11 @@
+safety_supervisor_node:
+  ros__parameters:
+    use_sim_time: true
+    lane_model_topic: /qcar2/lane/model
+    raw_cmd_topic: /qcar2/control/raw_cmd_vel
+    cmd_topic: /model/qcar2/cmd_vel
+    min_confidence: 0.3
+    timeout_sec: 0.8
+    control_rate: 20.0
+    max_linear: 0.35
+    max_angular: 0.8

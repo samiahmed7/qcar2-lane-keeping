@@ -1,0 +1,26 @@
+lane_controller_node:
+  ros__parameters:
+    use_sim_time: true
+    lane_model_topic: /qcar2/lane/model
+    behavior_state_topic: /qcar2/behavior/state
+    cmd_topic: /qcar2/control/raw_cmd_vel
+    kp: 1.15
+    base_speed: 0.25
+    min_speed: 0.12
+    max_angular: 0.8
+    image_half_width_px: 320.0
+    min_confidence: 0.3
+    timeout_sec: 0.8
+    control_rate: 20.0
+    large_error_slowdown_px: 240.0
+    lane_width_m: 0.75
+    lookahead_min_m: 0.55
+    lookahead_max_m: 2.0
+    lookahead_speed_gain: 1.8
+    lookahead_curvature_gain: 3.0
+    curvature_slowdown_gain: 1.4
+    max_path_curvature: 3.0
+    angular_filter_alpha: 0.35
+    # Architecture switch: P or PURE_PURSUIT_SIMPLE
+    controller_mode: PURE_PURSUIT_SIMPLE
+    lookahead_base: 1.0

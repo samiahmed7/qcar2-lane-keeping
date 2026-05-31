@@ -1,0 +1,27 @@
+bev_lane_detector_node:
+  ros__parameters:
+    use_sim_time: true
+    image_topic: /qcar2/front_camera/image
+    behavior_state_topic: /qcar2/behavior/state
+    lane_model_topic: /qcar2/lane/model
+    debug_topic: /qcar2/lane/debug_image
+    hsv_lo: [0, 0, 150]
+    hsv_hi: [180, 90, 255]
+    roi_y_start: 180
+    roi_y_end: 430
+    min_pixels_per_line: 25
+    debug_enabled: true
+    estimated_lane_width_px: 608.0
+    max_missing_frames: 45
+    alpha_smoothing: 0.65
+    confidence_threshold: 0.2
+
+    # Lane-line classification
+    min_lane_width_px: 120.0
+    max_lane_width_px: 900.0
+    peak_merge_distance_px: 70.0
+    histogram_smoothing_kernel: 9
+    lane_change_smoothing_alpha: 0.85
+    max_target_shift_px_per_frame: 35.0
+    lane_change_min_confidence: 0.45
+    lane_change_duration_sec: 3.0

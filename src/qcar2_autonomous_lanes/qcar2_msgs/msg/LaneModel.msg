@@ -1,0 +1,15 @@
+std_msgs/Header header
+bool left_visible
+bool middle_visible
+bool right_visible
+float32 left_x
+float32 middle_x
+float32 right_x
+float32 left_lane_center_x
+float32 right_lane_center_x
+float32 target_center_x
+float32 error_px
+float32 confidence
+float32 curvature
+float32 estimated_lane_width_px
+string target_lane
