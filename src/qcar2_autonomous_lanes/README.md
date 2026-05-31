@@ -21,22 +21,36 @@ source install/setup.bash
 
 ## Run
 
-Simulation only:
+Simulation only, headless:
 
 ```bash
-ros2 launch qcar2_bringup sim_bringup.launch.py
+ros2 launch qcar2_bringup sim_bringup.launch.py headless:=true
 ```
+
+Spawn the obstacle:
+
+```bash
+./scripts/spawn_box.sh 2.0 -6.20
+```
+
+Start autonomy:
+
+```bash
+./scripts/run_autonomy.sh
+```
+
+Open the overlay viewer:
+
+```bash
+python3 scripts/view_overlay.py
+```
+
+For the exact four-terminal demo flow, see the root `README.md`.
 
 Phase 1 lane perception only:
 
 ```bash
 ros2 launch qcar2_autonomy lane_perception.launch.py
-```
-
-Simulation plus autonomy skeleton:
-
-```bash
-ros2 launch qcar2_bringup autonomy.launch.py
 ```
 
 Useful topics:

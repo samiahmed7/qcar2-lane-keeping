@@ -1,249 +1,160 @@
-# QCar2 Lane-Change Simulation
+# QCar2 ML Steering Lane Keeping
 
-ROS2 Jazzy + Gazebo Harmonic workspace for a Quanser QCar2 driving on an oval
-track, staying between white lane markings, stopping for LiDAR obstacles, and
-changing lanes when the avoid stack sees a forward obstacle.
+ROS 2 Jazzy + Gazebo Harmonic workspace for a Quanser QCar2 lane-keeping and
+obstacle-avoidance stack.
 
-## Current Autonomous Lanes Work
+The current milestone runs a single QCar2 in the `lab_track` Gazebo world,
+detects lane markings with an ML steering pipeline, uses LiDAR to trigger an
+obstacle-avoidance lane switch, and then continues in the new lane. This stack
+is being prepared for deployment on the real Quanser QCar2 after simulation
+validation.
 
-The newer scaffold lives in `src/qcar2_autonomous_lanes`. Phase 1 perception is
-implemented in `qcar2_autonomy/qcar2_autonomy/bev_lane_detector_node.py`.
+## Current Stack
 
-It subscribes to `/qcar2/front_camera/image`, detects the three white lane
-lines, targets the right lane center between the middle dashed line and right
-solid line, and publishes:
+- `qcar2_description`: QCar2 URDF, meshes, sensors, and Ackermann setup.
+- `qcar2_worlds`: Gazebo `lab_track` world and map assets.
+- `qcar2_bringup`: simulation bringup and ROS/Gazebo bridge launch files.
+- `qcar2_autonomy`: perception, ML lane steering, obstacle behavior, lane-change
+  planning, command muxing, and safety nodes.
+- `qcar2_msgs`: shared custom ROS messages.
 
-- `/qcar2/lane/model` (`qcar2_msgs/msg/LaneModel`)
-- `/qcar2/lane/debug_image` (`sensor_msgs/msg/Image`)
+Large model weights are hosted on Hugging Face:
 
-Build and run perception:
+```text
+https://huggingface.co/HammadNaseer/qcar2-ml-steering-weights
+```
+
+See [docs/ML_STEERING_WEIGHTS.md](docs/ML_STEERING_WEIGHTS.md) for class names,
+sample scores, and download instructions.
+
+## Build
 
 ```bash
 cd ~/rosbot_ws
 source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install --packages-select qcar2_msgs qcar2_autonomy
+colcon build --symlink-install --packages-up-to qcar2_autonomy qcar2_bringup
 source install/setup.bash
-ros2 launch qcar2_autonomy lane_perception.launch.py
 ```
 
-## Quick Start
+If the ML weights are not already present locally:
 
 ```bash
-# Terminal 1 - simulation
-source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
-export GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/ros/jazzy/opt/gz_sim_vendor/lib
-export GZ_SIM_RESOURCE_PATH=$(ros2 pkg prefix qcar2)/share:$GZ_SIM_RESOURCE_PATH
-ros2 launch qcar2 simulation.launch.py
-
-# Terminal 2 - main driving stack
-source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
-ros2 launch qcar2_line_tracker lane_filter_avoid.launch.py
-
-# Terminal 3 - debug viewer
-ros2 run rqt_image_view rqt_image_view   # select /qcar2/lane_filter/debug
+scripts/download_ml_steering_weights.sh
 ```
 
-## Node Ownership
-
-Each node has one job:
-
-| Node | Owns | Does not own |
-|---|---|---|
-| `lane_filter` | camera mask, multi-line identity, selected lane centreline, EKF, path tracking | behaviour decisions, final safety veto |
-| `lane_change_manager` | lane index, target lane index, lane-change state, smooth blend offset | image processing, steering control |
-| `safety_filter` | path-aware LiDAR swept-volume check, stale-command stop, final `/model/qcar2/cmd_vel` | lane perception, lane-change planning |
-| `ipm_calibrate` | one-off perspective calibration | driving |
-
-The command path is:
+Expected weight paths:
 
 ```text
-lane_change_manager -> /qcar2/lane_selection
-lane_change_manager -> /qcar2/lane_target_offset
-lane_filter         -> /qcar2/cmd_vel_desired
-safety_filter       -> /model/qcar2/cmd_vel
+weights/car_track_v3_lane.onnx
+weights/car_track_v3_lane.classes.txt
 ```
 
-Only `safety_filter` should publish the real Gazebo drive command.
+## Run The ML Obstacle-Crossing Demo
 
-## Lane Identity
-
-The track has three white lane markings:
-
-```text
-SOLID_LEFT     DASHED_MIDDLE     SOLID_RIGHT
-```
-
-The centre marking is dashed in `qcar2_worlds/scripts/generate_track.py`, so
-the detector can identify it without relying on colour. `lane_filter` uses a
-multi-line detector instead of the old left-half/right-half detector:
-
-```text
-BEV white mask
-  -> histogram peak finder
-  -> up to 3 sliding-window line tracks
-  -> solid/dashed classification
-  -> lane corridor selected by lane index
-```
-
-Lane index convention:
-
-| Lane index | Corridor |
-|---|---|
-| `0` | `DASHED_MIDDLE + SOLID_RIGHT` |
-| `1` | `SOLID_LEFT + DASHED_MIDDLE` |
-
-With the current IPM calibration, the lane filter observes this corridor as
-about `0.69 m` wide. The lane-change manager uses that internal metric width as
-its initial shift distance and then keeps refining it from the observed line
-spacing.
-
-## Lane Change Commands
-
-`lane_filter_avoid.launch.py` enables automatic obstacle avoidance by default:
-when the front LiDAR range drops below `2.20 m` in lane `0`, the manager starts
-a left lane change into lane `1`. Manual requests are still available:
+### Terminal 1 - Gazebo Headless
 
 ```bash
-# Change one lane left
-ros2 topic pub --once /qcar2/lane_change_request std_msgs/msg/String "{data: LEFT}"
-
-# Change one lane right
-ros2 topic pub --once /qcar2/lane_change_request std_msgs/msg/String "{data: RIGHT}"
-
-# Abort active shift back toward the current lane
-ros2 topic pub --once /qcar2/lane_change_request std_msgs/msg/String "{data: ABORT}"
-
-# Watch state, target lane, offset, LiDAR gate, and rejection reason
-ros2 topic echo /qcar2/lane_change_status
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch qcar2_bringup sim_bringup.launch.py headless:=true
 ```
 
-For a clean left change from the default right lane, the status should move
-through roughly:
+Wait for this line:
 
 ```text
-state=KEEP lane=0 target=0 offset=+0.000 scan=OK blocked=False
-state=PREPARE lane=0 target=1 offset=+0.000
-state=CHANGING lane=0 target=1 offset=+0.xxx
-state=KEEP lane=1 target=1 offset=+0.000
+Camera images for [qcar2::base_link::front_camera] advertised on [/qcar2/front_camera/image]
 ```
 
-If it stays in `HOLD_TARGET`, watch `c0` and `meas_age`: perception has not yet
-accepted that the car is centred in the target lane.
-
-During a lane change, `lane_change_manager` publishes a smooth lateral blend.
-`lane_filter` converts that into blended centreline measurements between the
-current lane and target lane. This avoids the old one-frame role flip where the
-dashed middle line changed from one lane boundary to the other.
-
-If the debug/log output briefly shows `COAST` near the dashed middle line, that
-means the detector could not produce at least two centreline measurements for
-that frame. The current code keeps short identity memory and accepts weaker
-single-line evidence only while a lane change is active, so midpoint dropouts
-should be shorter and less sticky than before.
-
-## LiDAR Sanity Check
-
-The QCar2 LiDAR scans horizontally at roughly `0.19 m` above the ground. It will
-not detect painted lane lines, and it will not detect the low `0.08 m` track
-walls. Use a tall test box when checking obstacle detection:
+### Terminal 2 - Spawn Obstacle
 
 ```bash
-# Terminal 1: sim
-ros2 launch qcar2 simulation.launch.py
-
-# Terminal 2: lane stack
-ros2 launch qcar2_line_tracker lane_filter_avoid.launch.py
-
-# Terminal 3: spawn a tall box directly in front of the default start pose
-ros2 launch qcar2_line_tracker lidar_test_obstacle.launch.py
-
-# Terminal 4: confirm scans and safety gate
-ros2 topic echo /qcar2/safety_status
-ros2 topic echo /qcar2/lane_change_status
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+./scripts/spawn_box.sh 2.0 -6.20
 ```
 
-If `/qcar2/safety_status` says `scan=MISSING`, the LiDAR bridge is not running
-or simulation is not up. If it says `scan=STALE`, the bridge stopped updating.
-Both states force the final drive command to zero. If it says `scan=OK` but
-the object is not showing in `arc_min`, `corridor_min`, `obj_*`, or
-`global_min`, it is probably below scan height, too close for the `0.15 m`
-LiDAR minimum range, or outside the sensor view. If the object appears at a
-consistent non-zero angle in `global_angle`, tune `front_angle_offset_deg` in
-`lane_filter_avoid.launch.py`.
-
-When `/qcar2/lane_filter/state` is fresh, the safety filter checks each LiDAR
-return against the EKF path corridor instead of a fixed straight-ahead box:
-
-```text
-y_path = c0 + c1*x + c2*x^2/2 + c3*x^3/6
-blocked if abs(y - y_path) <= vehicle_half_width + path_safety_margin
-```
-
-Default safety tuning starts braking when a point is inside that path corridor
-at `path_min < 1.80 m` and hard-stops below `1.20 m`. If the lane-filter state
-is stale or missing, safety falls back to the conservative car-centred corridor.
-The default path band is `0.18 m` (`0.10 m` simulated vehicle half-width plus
-`0.08 m` margin), based on the QCar2 URDF collision/visual width. The path
-check starts at `x=0.30 m`, roughly past the front bumper; closer points use
-only a narrow central near-body stop strip (`x <= 0.30 m`, `|y| <= 0.07 m`) so
-side returns while passing a box do not stop the car. `arc_min`, `corridor_min`,
-and `obj_*` are still reported for debugging, but in `mode=PATH` they do not
-stop the car unless a point overlaps the planned path. Seeing
-`mode=PATH path_min=1.10m blocked=True` means the LiDAR obstacle stop is
-working. Seeing `obj_*` or `corridor_min` near the old-lane obstacle while
-`path_min=inf blocked=False` means the car sees the object but can pass it.
-
-In the full avoid stack, obstacle avoidance should begin earlier than braking:
-`lane_change_manager` triggers the left lane change around a `2.20m` forward
-obstacle range, and `safety_filter` remains the final veto if the object still
-overlaps the driven path.
-
-`/qcar2/lane_change_status` also reports `meas_age`; lane changes only complete
-when the lane-filter measurement is fresh.
-
-For obstacle avoidance, the lane-change manager also estimates the nearest
-LiDAR obstacle cluster:
-
-```text
-obj_x    nearest forward face distance
-obj_y    lateral obstacle span in the car frame
-obj_w    estimated lateral obstacle width
-extra    temporary extra lane-change offset used for clearance
-```
-
-When `extra` is non-zero, the car does not aim only for lane `1` centre. It aims
-for lane `1` plus that extra left clearance and holds the offset until the
-obstacle is no longer ahead. The clearance target can grow during the maneuver
-as the LiDAR gets a better view of the obstacle face.
-added when the measured obstacle span actually requires it; if lane `1` centre
-has enough clearance, `extra` should stay `0.000`.
-
-## Other Launches
+### Terminal 3 - Autonomy
 
 ```bash
-# Observer only: camera + lane_filter debug, no cmd_vel output
-ros2 launch qcar2_line_tracker lane_filter.launch.py
-
-# Calibrate the IPM perspective transform
-ros2 launch qcar2_line_tracker ipm_calibrate.launch.py
-
-# Drive on the wider-lane track
-ros2 launch qcar2 simulation.launch.py world:=qcar_oval_wide y:=-6.275
+cd ~/rosbot_ws
+./scripts/run_autonomy.sh
 ```
+
+Wait for:
+
+```text
+Autonomy up. Detector loads in ~10 s
+```
+
+### Terminal 4 - Viewer
+
+```bash
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+python3 scripts/view_overlay.py
+```
+
+## What The Demo Does
+
+1. Gazebo runs the QCar2 and publishes camera/LiDAR topics.
+2. A box is spawned ahead of the starting lane at `(x=2.0, y=-6.20)`.
+3. `run_autonomy.sh` starts:
+   - RF-DETR ONNX lane detector
+   - PID lane follower
+   - LiDAR-tracked obstacle state machine
+   - open-loop lane-change planner
+   - command mux
+4. The car detects the obstacle with LiDAR.
+5. The planner switches the car into the adjacent lane.
+6. The state machine stays in the new lane instead of returning to the first
+   lane.
+7. The ML tracker regains control after the lane-change maneuver completes.
 
 ## Key Topics
 
-| Topic | Type | Carries |
-|---|---|---|
-| `/qcar2/front_camera/image` | `sensor_msgs/Image` | 640x480 camera |
-| `/qcar2/lidar/scan` | `sensor_msgs/LaserScan` | 720-sample 360 degree LiDAR |
-| `/qcar2/lane_filter/debug` | `sensor_msgs/Image` | camera + BEV + lane identity debug |
-| `/qcar2/lane_filter/state` | `std_msgs/Float32MultiArray` | `[c0, c1, c2, c3, lane_width_obs, age]` |
-| `/qcar2/lane_change_request` | `std_msgs/String` | `LEFT`, `RIGHT`, `ABORT`, `KEEP` |
-| `/qcar2/lane_selection` | `std_msgs/Int32MultiArray` | `[current_lane, target_lane, active, direction]` |
-| `/qcar2/lane_target_offset` | `std_msgs/Float32` | smooth lateral blend offset |
-| `/qcar2/cmd_vel_desired` | `geometry_msgs/Twist` | pre-safety drive command |
-| `/qcar2/safety_status` | `std_msgs/String` | LiDAR gate diagnostics |
-| `/model/qcar2/cmd_vel` | `geometry_msgs/Twist` | final Gazebo drive command |
+| Topic | Purpose |
+|---|---|
+| `/qcar2/front_camera/image` | Front camera stream from Gazebo. |
+| `/qcar2/lidar/scan` | 2D LiDAR scan. |
+| `/planning/validated_target_x` | ML lane target consumed by PID. |
+| `/system/current_state` | High-level lane state: `LANE_KEEP`, `LANE_CHANGE`, `LANE_RETURN`. |
+| `/qcar2/control/raw_cmd_vel` | Lane-keep command before muxing. |
+| `/qcar2/control/maneuver_cmd_vel` | Lane-change planner command. |
+| `/model/qcar2/cmd_vel` | Final Gazebo drive command. |
 
-See [CHECKPOINT.md](CHECKPOINT.md) for the longer technical reference.
+## Useful Scripts
+
+| Script | Purpose |
+|---|---|
+| `scripts/run_autonomy.sh` | Starts autonomy only after Gazebo is already running. |
+| `scripts/spawn_box.sh` | Spawns a tall LiDAR-visible test obstacle. |
+| `scripts/view_overlay.py` | Shows the live RF-DETR/debug overlay. |
+| `scripts/stop_lane_keeping.sh` | Stops the running autonomy/sim helper processes. |
+| `scripts/download_ml_steering_weights.sh` | Downloads model weights from Hugging Face. |
+
+## Notes
+
+- The default autonomy mode uses one-way lane switching for the obstacle pass.
+  It does not return to the original lane after crossing.
+- The detector can take about 10 seconds to warm up after `run_autonomy.sh`.
+- Headless Gazebo is preferred because the GUI plus GPU inference can overload
+  a single laptop GPU.
+- Large weights, Roboflow caches, videos, and virtual environments are excluded
+  from Git and should stay on Hugging Face or local disk.
+
+## Repositories
+
+Code:
+
+```text
+https://github.com/6hammad9/qcar2-lane-keeping
+```
+
+Weights:
+
+```text
+https://huggingface.co/HammadNaseer/qcar2-ml-steering-weights
+```
