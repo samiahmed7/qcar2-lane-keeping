@@ -337,6 +337,8 @@ class RfdetrOnnxLaneNode(Node):
 
     def destroy_node(self):
         self._stop.set()
+        if hasattr(self, 'worker') and self.worker.is_alive():
+            self.worker.join(timeout=5.0)
         return super().destroy_node()
 
 

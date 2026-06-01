@@ -1,0 +1,59 @@
+mpc_lidar_obstacle_node:
+  ros__parameters:
+    use_sim_time: true
+    scan_topic: /qcar2/lidar/scan
+    odom_topic: /model/qcar2/odometry
+    obstacle_topic: /mpc/obstacle
+    front_angle_deg: 25.0
+    detect_range_m: 2.5
+    min_points: 2
+    min_radius_m: 0.15
+    face_depth_tolerance_m: 0.30
+    forward_angle_rad: 0.0
+    side_angle_min_deg: 30.0
+    side_angle_max_deg: 150.0
+
+mpc_reference_planner_node:
+  ros__parameters:
+    use_sim_time: true
+    config_path: /home/hammad/rosbot_ws/src/qcar2_autonomous_lanes/qcar2_autonomy/config/mpc.yaml
+    waypoints_path: /home/hammad/rosbot_ws/track_waypoints.npy
+    odom_topic: /model/qcar2/odometry
+    obstacle_topic: /mpc/obstacle
+    reference_path_topic: /mpc/reference_path
+    target_speed_topic: /mpc/target_speed
+    mode_topic: /mpc/mode
+    loop: true
+    publish_rate_hz: 10.0
+    normal_speed: 0.25
+    lane_change_speed: 0.15
+    return_speed: 0.10
+    # Trigger far enough out that the full ramp_in fits BEFORE the box
+    # (trigger_distance should exceed ramp_in + a margin).
+    trigger_distance: 2.6
+    obstacle_timeout_sec: 0.8
+    cooldown_sec: 2.0
+    prefer_side: left
+    current_lane_half_width_m: 0.38
+    min_side_clearance_m: 0.6
+    vehicle_width: 0.20
+    clearance_margin: 0.18
+    # Longer ramps => gentler, car-like S-curve. At e*~0.46 m:
+    #   ramp 0.9 m -> 39 deg peak heading (too sharp); 2.0 m -> ~20 deg (smooth).
+    ramp_in: 2.0
+    ramp_out: 2.0
+    hold_pad: 0.25
+    path_search_back_m: 0.5
+    path_search_ahead_m: 2.0
+
+mpc_drive_node:
+  ros__parameters:
+    use_sim_time: true
+    config_path: /home/hammad/rosbot_ws/src/qcar2_autonomous_lanes/qcar2_autonomy/config/mpc.yaml
+    odom_topic: /model/qcar2/odometry
+    reference_path_topic: /mpc/reference_path
+    target_speed_topic: /mpc/target_speed
+    cmd_topic: /model/qcar2/cmd_vel
+    target_speed: 0.30
+    reference_timeout_sec: 0.8
+    publish_rate_hz: 20.0

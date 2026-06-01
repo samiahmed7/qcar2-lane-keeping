@@ -328,6 +328,10 @@
         <plugin filename="gz-sim-ackermann-steering-system"
                 name="gz::sim::systems::AckermannSteering">
             <topic>/model/qcar2/cmd_vel</topic>
+            <odom_topic>/model/qcar2/odometry</odom_topic>
+            <tf_topic>/model/qcar2/tf</tf_topic>
+            <frame_id>odom</frame_id>
+            <child_frame_id>base_link</child_frame_id>
             <left_joint>wheel_frontLeft_joint</left_joint>
             <left_joint>wheel_rearLeft_joint</left_joint>
             <right_joint>wheel_frontRight_joint</right_joint>
@@ -339,6 +343,7 @@
             <wheel_base>0.25725</wheel_base>
             <wheel_radius>0.033</wheel_radius>
             <steering_limit>0.5236</steering_limit>
+            <steer_p_gain>4.0</steer_p_gain>
             <max_velocity>2.0</max_velocity>
             <min_velocity>-2.0</min_velocity>
             <max_acceleration>3.0</max_acceleration>

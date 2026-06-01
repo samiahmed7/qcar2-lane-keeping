@@ -39,3 +39,7 @@ external/
 
 # Local-only calibration overrides (uncomment if you decide ipm.yaml is per-camera)
 # src/qcar2_line_tracker/config/ipm.yaml
+
+# MPC run artifacts (regenerable from a logged run)
+mpc_run_log.npz
+mpc_speed_compare.png
