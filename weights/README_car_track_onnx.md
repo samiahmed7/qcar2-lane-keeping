@@ -1,11 +1,26 @@
-# car-track-nkz9u/3 Packaged ONNX
+# car-track-nkz9u/3 RF-DETR Lane ONNX
 
 This folder contains a standalone offline ONNX package for the Roboflow model
 `car-track-nkz9u/3`.
 
+The MPC-ML runtime uses `weights/car_track_v3_lane.onnx`. GitHub rejects single
+files over 100 MB, so this repository stores that ONNX as committed part files:
+
+- `weights/car_track_v3_lane.onnx.part-aa`
+- `weights/car_track_v3_lane.onnx.part-ab`
+
+Restore the runtime ONNX after cloning with:
+
+```bash
+./scripts/restore_weights.sh
+```
+
+`scripts/run_mpc.sh` also runs that restore step automatically when the default
+ONNX file is missing.
+
 ## Artifact
 
-- Model file: `weights/car_track_nkz9u_3_rfdetr_seg_medium.onnx`
+- Model file: `weights/car_track_v3_lane.onnx`
 - Architecture: RF-DETR segmentation medium
 - Task: instance segmentation
 - Input: `input`, float32 NCHW `[1, 3, 432, 432]`
@@ -15,7 +30,7 @@ This folder contains a standalone offline ONNX package for the Roboflow model
   - `4647`: `[1, 200, 108, 108]` mask logits
 - Classes: `background_class83422`, `lane2`, `traffic_light`
 - Packaged ONNX SHA256:
-  `dfbac7ce35c5befc3397f722df9380ca9a9b46df1e9ea2dd6a954405cbbe1a9c`
+  `c981e0652eb1c268f1fa28f7cc4d51e8df8b9064d78c7a3e3b84dfda0d762fbd`
 
 The original Roboflow cached ONNX blob was:
 
@@ -48,7 +63,7 @@ python3 scripts/run_car_track_onnx.py \
 cd ~/rosbot_ws
 python3 - <<'PY'
 import onnx, onnxruntime as ort
-p = "weights/car_track_nkz9u_3_rfdetr_seg_medium.onnx"
+p = "weights/car_track_v3_lane.onnx"
 onnx.checker.check_model(onnx.load(p))
 s = ort.InferenceSession(p, providers=["CPUExecutionProvider"])
 print("inputs:", [(i.name, i.shape, i.type) for i in s.get_inputs()])
@@ -69,7 +84,7 @@ outputs: [('dets', [1, 200, 4], 'tensor(float)'), ('labels', [1, 200, 3], 'tenso
 cd ~/rosbot_ws
 python3 scripts/run_car_track_onnx.py \
   --image "lane debug_screenshot_24.05.2026.png" \
-  --onnx weights/car_track_nkz9u_3_rfdetr_seg_medium.onnx \
+  --onnx weights/car_track_v3_lane.onnx \
   --output-dir weights/onnx_runs \
   --check-model
 ```
@@ -85,7 +100,7 @@ Outputs:
 cd ~/rosbot_ws
 python3 scripts/run_car_track_onnx.py \
   --input-dir frames \
-  --onnx weights/car_track_nkz9u_3_rfdetr_seg_medium.onnx \
+  --onnx weights/car_track_v3_lane.onnx \
   --output-dir weights/onnx_runs
 ```
 

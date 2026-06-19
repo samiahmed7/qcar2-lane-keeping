@@ -84,6 +84,10 @@ done
 if truthy "${LANE_FUSION:-}"; then LF=true; else LF=false; fi
 
 if truthy "${OVERLAY:-1}" || [ "${LF}" = "true" ]; then
+    ONNX_PATH="${ONNX_PATH:-${WS}/weights/car_track_v3_lane.onnx}"
+    if [ "${ONNX_PATH}" = "${WS}/weights/car_track_v3_lane.onnx" ] && [ ! -f "${ONNX_PATH}" ]; then
+        "${WS}/scripts/restore_weights.sh"
+    fi
     if [ "${LF}" = "true" ]; then
         echo "Starting RF-DETR lane node (debug overlay + MPC lane-fusion target)..."
     else
@@ -94,7 +98,7 @@ if truthy "${OVERLAY:-1}" || [ "${LF}" = "true" ]; then
     nohup ros2 run qcar2_autonomy rfdetr_onnx_lane_node --ros-args \
         -p use_sim_time:=true \
         -p image_topic:=/qcar2/front_camera/image \
-        -p onnx_path:=${WS}/weights/car_track_v3_lane.onnx \
+        -p onnx_path:=${ONNX_PATH} \
         -p classes_path:=${WS}/weights/car_track_v3_lane.classes.txt \
         -p lane_class_name:=lane2 -p publish_target:=${LF} \
         > "${LOG}/rfdetr.log" 2>&1 & disown
