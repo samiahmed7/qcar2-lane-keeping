@@ -28,6 +28,14 @@ def generate_launch_description():
         DeclareLaunchArgument("prefer_side", default_value="left"),
         DeclareLaunchArgument("loop", default_value="true"),
         DeclareLaunchArgument("record_log", default_value="false"),
+        DeclareLaunchArgument("lane_fusion_enabled", default_value="false"),
+        DeclareLaunchArgument("lane_model_topic", default_value="/qcar2/lane/model"),
+        DeclareLaunchArgument("lane_target_topic", default_value="/planning/validated_target_x"),
+        DeclareLaunchArgument("lane_fusion_max_correction_m", default_value="0.30"),
+        DeclareLaunchArgument("lane_px_to_m", default_value="0.0015"),
+        DeclareLaunchArgument("lane_fusion_gain", default_value="1.15"),
+        DeclareLaunchArgument("lane_fusion_alpha", default_value="0.45"),
+        DeclareLaunchArgument("lane_fusion_disable_heading_delta_rad", default_value="3.20"),
         Node(
             package="qcar2_autonomy",
             executable="mpc_lidar_obstacle_node",
@@ -52,6 +60,32 @@ def generate_launch_description():
                     "loop": ParameterValue(
                         LaunchConfiguration("loop"),
                         value_type=bool,
+                    ),
+                    "lane_fusion_enabled": ParameterValue(
+                        LaunchConfiguration("lane_fusion_enabled"),
+                        value_type=bool,
+                    ),
+                    "lane_model_topic": LaunchConfiguration("lane_model_topic"),
+                    "lane_target_topic": LaunchConfiguration("lane_target_topic"),
+                    "lane_fusion_max_correction_m": ParameterValue(
+                        LaunchConfiguration("lane_fusion_max_correction_m"),
+                        value_type=float,
+                    ),
+                    "lane_px_to_m": ParameterValue(
+                        LaunchConfiguration("lane_px_to_m"),
+                        value_type=float,
+                    ),
+                    "lane_fusion_gain": ParameterValue(
+                        LaunchConfiguration("lane_fusion_gain"),
+                        value_type=float,
+                    ),
+                    "lane_fusion_alpha": ParameterValue(
+                        LaunchConfiguration("lane_fusion_alpha"),
+                        value_type=float,
+                    ),
+                    "lane_fusion_disable_heading_delta_rad": ParameterValue(
+                        LaunchConfiguration("lane_fusion_disable_heading_delta_rad"),
+                        value_type=float,
                     ),
                 },
             ],

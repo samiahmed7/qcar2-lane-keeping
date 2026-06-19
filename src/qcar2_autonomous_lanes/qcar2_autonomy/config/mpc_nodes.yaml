@@ -5,7 +5,11 @@ mpc_lidar_obstacle_node:
     odom_topic: /model/qcar2/odometry
     obstacle_topic: /mpc/obstacle
     front_angle_deg: 25.0
-    detect_range_m: 2.5
+    # Must exceed the planner's trigger_distance (2.6 m): the obstacle has to be
+    # fully within range so its WIDTH is measured correctly BEFORE the planner
+    # commits to a side. At 2.5 m (< trigger) only the centre sliver of a wide
+    # box was in range, so its width (and the "blocked" case) was missed.
+    detect_range_m: 3.5
     min_points: 2
     min_radius_m: 0.15
     face_depth_tolerance_m: 0.30
@@ -36,6 +40,14 @@ mpc_reference_planner_node:
     prefer_side: left
     current_lane_half_width_m: 0.38
     min_side_clearance_m: 0.6
+    # Widest the car CENTRE may swing off the centreline to pass. A normal box
+    # needs e* ~ 0.48 m, so 0.65 allows a single-lane overtake but rejects a
+    # wide / whole-road obstacle (e* > 0.65 on both sides) -> BLOCKED_STOP.
+    max_lateral_offset_m: 0.65
+    # When stopped: front distance that counts as "clear again", and the minimum
+    # dwell before we re-check / resume (auto-resume when the road opens up).
+    blocked_resume_distance_m: 3.0
+    blocked_min_stop_sec: 0.6
     vehicle_width: 0.20
     clearance_margin: 0.18
     # Longer ramps => gentler, car-like S-curve. At e*~0.46 m:
@@ -45,6 +57,20 @@ mpc_reference_planner_node:
     hold_pad: 0.25
     path_search_back_m: 0.5
     path_search_ahead_m: 2.0
+    # Hybrid navigation + vision: navigation owns the route; vision applies the
+    # lane-centering lateral bias when the ML/camera signal is fresh.
+    lane_fusion_enabled: false
+    lane_model_topic: /qcar2/lane/model
+    lane_target_topic: /planning/validated_target_x
+    lane_image_center_px: 320.0
+    lane_width_m: 0.50
+    lane_px_to_m: 0.0015
+    lane_fusion_gain: 1.15
+    lane_fusion_alpha: 0.45
+    lane_fusion_max_correction_m: 0.30
+    lane_fusion_timeout_sec: 0.8
+    lane_fusion_min_confidence: 0.45
+    lane_fusion_disable_heading_delta_rad: 3.20
 
 mpc_drive_node:
   ros__parameters:
