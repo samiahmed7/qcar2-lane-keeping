@@ -24,5 +24,23 @@ Thumbs.db
 *.db3
 *.rosbag2
 
+# Local virtual environments and helper state
+.venvs/
+.claude/
+
+# Large/generated ML artifacts. The RF-DETR ONNX runtime model is restored from
+# committed weights/*.onnx.part-* files by scripts/restore_weights.sh.
+weights/*.onnx
+weights/roboflow_cache/
+src/qcar2_autonomous_lanes/qcar2_autonomy/weights/*.pt
+src/qcar2_autonomous_lanes/qcar2_autonomy/weights/*.pth
+archive/
+external/
+*.mp4
+
 # Local-only calibration overrides (uncomment if you decide ipm.yaml is per-camera)
 # src/qcar2_line_tracker/config/ipm.yaml
+
+# MPC run artifacts (regenerable from a logged run)
+mpc_run_log.npz
+mpc_speed_compare.png

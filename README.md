@@ -1,122 +1,225 @@
-# QCar2 Lane-Keeping Simulation
+# QCar2 BEV-MPC Lane Keeping
 
-ROS2 Jazzy + Gazebo Harmonic workspace for the Quanser QCar2 driving autonomously around a closed oval track.
+ROS 2 Jazzy + Gazebo Harmonic workspace for a Quanser QCar2 lane-keeping and
+navigation stack. The current branch focuses on the **HSV + IPM bird's-eye-view
+(BEV) lane detector** fused into a **Model Predictive Control (MPC)** route
+tracker.
+
+The design is intentionally simple:
+
+- Camera HSV/BEV detects white lane markings and publishes `/qcar2/lane/model`.
+- LiDAR detects obstacles and publishes `/mpc/obstacle`.
+- The planner builds a route reference, applies a small BEV lane-centering
+  correction, and publishes `/mpc/reference_path`.
+- MPC tracks that reference and publishes `/model/qcar2/cmd_vel`.
+
+No deep-learning weights are required for the BEV-MPC run path.
+
+## Architecture
+
+```text
+/qcar2/front_camera/image
+        |
+        v
+bev_lane_detector_node  -- /qcar2/lane/model
+        |                           |
+        |                           v
+/qcar2/lidar/scan --> mpc_lidar_obstacle_node --> /mpc/obstacle
+                                    |
+<route>.npy + /model/qcar2/odometry |
+        |                           v
+        +------------------> mpc_reference_planner_node
+                                    |
+                                    v
+             /mpc/reference_path, /mpc/target_speed, /mpc/mode
+                                    |
+                                    v
+                         mpc_drive_node
+                                    |
+                                    v
+                         /model/qcar2/cmd_vel
+```
+
+## Build
+
+```bash
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+colcon build --symlink-install --packages-up-to qcar2_autonomy qcar2_bringup
+source install/setup.bash
+```
 
 ## Quick start
 .
 ```bash
-# Terminal 1 — simulation
-source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
-export GZ_SIM_SYSTEM_PLUGIN_PATH=/opt/ros/jazzy/opt/gz_sim_vendor/lib
-export GZ_SIM_RESOURCE_PATH=$(ros2 pkg prefix qcar2)/share:$GZ_SIM_RESOURCE_PATH
-ros2 launch qcar2 simulation.launch.py
-
-# Terminal 2 — lane keeping driver (default, smooth, no calibration needed)
-source /opt/ros/jazzy/setup.bash && source ~/rosbot_ws/install/setup.bash
-ros2 launch qcar2_line_tracker lane_follower.launch.py
-
-# Terminal 3 — debug viewer
-ros2 run rqt_image_view rqt_image_view   # select /qcar2/debug/image
+python3 -m pip install --user --break-system-packages cvxpy clarabel
 ```
 
-That's it — the car drives itself around the oval, staying in the right lane between the centre dashes and the outer solid line.
+## Run: University Track, Right Lane, HSV/BEV + MPC
 
-## What's in the workspace
+Use these terminal commands for the main BEV-MPC setup.
 
-```
-rosbot_ws/
-├── src/
-│   ├── qcar2/                    Robot description (URDF + meshes + sim launch)
-│   ├── qcar2_worlds/             Parametric oval track + variants
-│   │   ├── worlds/qcar_oval.sdf      default — narrow lane, frequent dashes
-│   │   └── worlds/qcar_oval_wide.sdf wider lane, longer dash gaps (stress test)
-│   └── qcar2_line_tracker/       Two lane-keeping pipelines
-│       ├── lane_follower.py          ★ DEFAULT — centroid + PD driver
-│       ├── lane_filter.py            EKF observer/driver (work-in-progress)
-│       ├── clothoid_ekf.py             Clothoid Extended Kalman Filter
-│       ├── lane_detector.py            Sliding-window line finder in BEV
-│       ├── ipm.py                      IPM warp utility
-│       └── ipm_calibrate.py            Click-to-calibrate tool for IPM
-├── README.md          (you are here)
-├── CHECKPOINT.md      Full technical reference + roadmap
-└── ISSUES_AND_FIXES.md
-```
-
-## The two lane-keeping drivers
-
-### `lane_follower` — the default
-
-The driver this README launches above. Simple and reliable:
-- White-mask the camera frame (HSV)
-- Find the leftmost and rightmost lane edges in a look-ahead band
-- Track lane width dynamically; tolerate dash gaps
-- EMA-smoothed midpoint → PD on pixel error
-
-No calibration needed. Tuned for our oval. **This is what the workspace is committed to use right now.**
-
-### `lane_filter` — the EKF pipeline (in development)
-
-Same purpose, very different architecture:
-- Inverse-Perspective-Map the camera to a bird's-eye view (requires one-off calibration)
-- Sliding-window lane-line detection in BEV, seeded by EKF prediction
-- **Clothoid Extended Kalman Filter** consumes lane points + vehicle odometry, produces a clothoid lane model `y(s) = c0 + c1·s + (c2/2)·s² + (c3/6)·s³`
-- Confidence-aware: handles single-line scenarios, ambiguous detections, and full perception loss (COAST mode)
-- Stanley controller: `δ = k_head·c1 + atan(k_lat·c0/v) + k_ff·κ`
-
-This is the architecture being matured for **real QCar2 hardware** and **multi-vehicle V2V** scenarios where the EKF's metric state, uncertainty signal, and prediction-through-dropouts properties become essential.
-
-For now it's still being tuned, so the centroid driver is the documented default.
-
-## Other launches
+Terminal 1: start Gazebo on the university track, spawning the car in the right
+lane.
 
 ```bash
-# Drive on the wider-lane track (more challenging — bigger dash gaps)
-ros2 launch qcar2 simulation.launch.py world:=qcar_oval_wide y:=-6.275
-
-# Run the EKF observer in parallel with the centroid driver (debug view only)
-ros2 run qcar2_line_tracker lane_filter
-# Then view /qcar2/lane_filter/debug
-
-# Run the EKF as the driver (must stop lane_follower first)
-ros2 launch qcar2_line_tracker lane_filter_drive.launch.py
-
-# Calibrate the IPM perspective transform (one-off)
-ros2 launch qcar2_line_tracker ipm_calibrate.launch.py
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch qcar2_bringup sim_bringup.launch.py world:=university_track x:=0.0 y:=-0.25 yaw:=0.0 headless:=false
 ```
 
-## Generating track variants
-
-The track is procedural:
+Terminal 2: run MPC navigation with HSV/BEV lane fusion.
 
 ```bash
-python3 src/qcar2_worlds/scripts/generate_track.py \
-    --lo 0.55 --tw 1.6 --dash-period 0.9 \
-    --world-name qcar_oval_custom \
-  > src/qcar2_worlds/worlds/qcar_oval_custom.sdf
-colcon build --packages-select qcar2_worlds --base-paths src
+cd ~/rosbot_ws
+START_LANE=right LANE_FUSION=1 OVERLAY=1 TARGET_SPEED=0.55 LOOP=false ./scripts/run_mpc.sh
 ```
 
-`--help` for all flags.
+Terminal 3: watch the BEV lane model and fusion status.
 
-## Key topics
+```bash
+ros2 topic echo /qcar2/lane/model
+ros2 topic echo /mpc/lane_fusion_status
+```
 
-| Topic | Type | Carries |
-|---|---|---|
-| `/qcar2/front_camera/image` | sensor_msgs/Image | 640×480 30 Hz camera |
-| `/qcar2/lidar/scan` | sensor_msgs/LaserScan | 720-sample 360° lidar |
-| `/model/qcar2/cmd_vel` | geometry_msgs/Twist | drive command |
-| `/model/qcar2/odometry` | nav_msgs/Odometry | vehicle pose + velocity |
-| `/qcar2/debug/image` | sensor_msgs/Image | annotated centroid debug |
-| `/qcar2/lane_filter/debug` | sensor_msgs/Image | composite EKF debug view |
-| `/qcar2/lane_filter/state` | std_msgs/Float32MultiArray | `[c0, c1, c2, c3, lane_width_obs, age]` |
+Optional: open the BEV debug image.
 
-See [CHECKPOINT.md](CHECKPOINT.md) for the full technical reference, EKF architecture, mode states, and roadmap.
+```bash
+python3 scripts/view_overlay.py /qcar2/lane/debug_image
+```
 
-## Roadmap
+## One-Shot Headless Test
 
-- ☐ Phase A4 — finish tuning Clothoid EKF process/measurement noise
-- ☐ LiDAR safety filter (emergency stop)
-- ☐ Behaviour mode interface for V2V
-- ☐ Multi-vehicle namespacing
-- ☐ V2V messaging between leader and follower QCar2
-- ☐ Lane-change controller
+This starts the sim, runs the BEV-MPC stack, records a log, saves a plot, and
+cleans up:
+
+```bash
+cd ~/rosbot_ws
+START_LANE=right LANE_FUSION=1 SPEED=0.55 DUR=300 ./scripts/autorun_mpc_route.sh
+```
+
+Outputs:
+
+- `mpc_run_log.npz`
+- `mpc_run_plot.png`
+- `/tmp/autorun/*.log`
+
+For a full slow headless run on this machine, use a longer duration:
+
+```bash
+START_LANE=right LANE_FUSION=1 SPEED=0.55 DUR=900 ./scripts/autorun_mpc_route.sh
+```
+
+## Run: Lab Track Obstacle Demo
+
+Terminal 1:
+
+```bash
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch qcar2_bringup sim_bringup.launch.py headless:=true
+```
+
+Terminal 2:
+
+```bash
+cd ~/rosbot_ws
+./scripts/spawn_box.sh 2.0 -6.20
+```
+
+Terminal 3:
+
+```bash
+cd ~/rosbot_ws
+./scripts/run_mpc.sh
+```
+
+## Generate Or Refresh The University Track
+
+```bash
+cd ~/rosbot_ws
+python3 scripts/make_track.py
+python3 scripts/make_world.py
+python3 scripts/make_route_check.py
+colcon build --symlink-install --packages-select qcar2_worlds
+```
+
+The important route files are:
+
+- `university_route.npy`: route centerline.
+- `university_route_rlane.npy`: right-lane route used by `START_LANE=right`.
+- `track_waypoints.npy`: original lab-track route.
+
+## Useful Topics
+
+| Topic | Purpose |
+|---|---|
+| `/qcar2/front_camera/image` | Raw front camera. |
+| `/qcar2/lane/model` | HSV/BEV lane model used by MPC lane fusion. |
+| `/qcar2/lane/debug_image` | HSV/BEV debug overlay. |
+| `/qcar2/lidar/scan` | 2D LiDAR. |
+| `/model/qcar2/odometry` | Vehicle pose and speed. |
+| `/mpc/obstacle` | LiDAR obstacle estimate. |
+| `/mpc/reference_path` | Route reference after obstacle/lane-fusion corrections. |
+| `/mpc/target_speed` | MPC speed target. |
+| `/mpc/mode` | Planner state. |
+| `/mpc/lane_fusion_status` | Why BEV fusion is active/gated and current offset. |
+| `/model/qcar2/cmd_vel` | Final drive command. |
+
+## Useful Scripts
+
+| Script | Purpose |
+|---|---|
+| `scripts/run_mpc.sh` | Main terminal-run MPC stack. |
+| `scripts/autorun_mpc_route.sh` | Headless sim + BEV-MPC + record + plot. |
+| `scripts/autorun_bev_fusion.sh` | Lab-track BEV fusion smoke test. |
+| `scripts/grab_bev.sh` | Save raw camera and BEV debug PNGs. |
+| `scripts/make_track.py` | Generate university route arrays. |
+| `scripts/make_world.py` | Generate `university_track.sdf`. |
+| `scripts/make_route_check.py` | Generate/check the right-lane route. |
+| `scripts/plot_mpc_run.py` | Plot a recorded MPC run. |
+| `scripts/view_overlay.py` | View `/qcar2/lane/debug_image` or another image topic. |
+| `scripts/spawn_box.sh` | Spawn a LiDAR-visible obstacle. |
+| `scripts/stop_lane_keeping.sh` | Stop sim/autonomy processes. |
+
+## Tuning
+
+Primary parameters:
+
+- `src/qcar2_autonomous_lanes/qcar2_autonomy/config/mpc.yaml`: MPC model,
+  horizon, and cost weights.
+- `src/qcar2_autonomous_lanes/qcar2_autonomy/config/mpc_nodes.yaml`: planner,
+  obstacle, lane-fusion, and command-smoothing parameters.
+
+Important environment variables for `scripts/run_mpc.sh`:
+
+- `START_LANE=right`
+- `LANE_FUSION=1`
+- `TARGET_SPEED=0.55`
+- `LOOP=false`
+- `LANE_FUSION_GAIN`
+- `LANE_FUSION_ALPHA`
+- `LANE_FUSION_MAX_CORRECTION`
+- `LANE_FUSION_MAX_STEP`
+- `LANE_FUSION_HEADING_GATE`
+- `COMMAND_SMOOTHING`
+- `OMEGA_SMOOTHING_ALPHA`
+- `MAX_OMEGA_RATE`
+
+## Notes
+
+- `/model/qcar2/odometry` is spawn-relative in this simulator. For the right-lane
+  university route, spawn at `x:=0.0 y:=-0.25 yaw:=0.0` and run with
+  `START_LANE=right`.
+- Use `LOOP=false` for the university branch route.
+- The headless sim can run much slower than wall time on this machine; use a long
+  `DUR` for full-route validation.
+- The BEV detector is classical HSV/IPM and does not require ML weights.
+
+## Repository
+
+```text
+https://github.com/6hammad9/qcar2-lane-keeping
+```

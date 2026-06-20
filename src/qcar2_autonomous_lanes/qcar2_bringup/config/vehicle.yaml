@@ -1,0 +1,14 @@
+vehicle:
+  ros__parameters:
+    use_sim_time: true
+    base_frame: base_link
+    lidar_frame: lidar
+    command_topic: /model/qcar2/cmd_vel
+    desired_command_topic: /qcar2/cmd_vel_desired
+    odometry_topic: /model/qcar2/odometry
+    scan_topic: /qcar2/lidar/scan
+    camera_topic: /qcar2/front_camera/image
+    wheel_base_m: 0.25725
+    wheel_radius_m: 0.033
+    track_width_m: 0.1122
+    vehicle_half_width_m: 0.18

@@ -1,0 +1,7 @@
+std_msgs/Header header
+bool front_blocked
+bool left_clear
+bool right_clear
+float32 front_min_distance
+float32 left_min_distance
+float32 right_min_distance

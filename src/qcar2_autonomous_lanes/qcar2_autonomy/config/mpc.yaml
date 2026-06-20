@@ -1,0 +1,37 @@
+# MPC config for the QCar2 (vendored iMPC). Tuned small + slow for the lab track.
+model:
+  vehicle:
+    wheelbase: 0.256   # QCar2 axle-to-axle (m), matches kinematics_node
+    width: 0.20        # QCar2 body width (m)
+    max_speed: 1.00    # m/s; below sim cap (2.0), planner slows for curves
+    max_acc: 1.00      # m/s^2
+    max_d_acc: 1.50    # m/s^3 (jerk)
+    max_steer: 0.50    # rad (~28 deg)
+    max_d_steer: 1.20  # rad/s
+
+controller:
+  prediction:
+    horizon_time: 3.0  # s -> 15 steps. KNOWN-STABLE base (solve ~0.53s).
+    timestep: 0.2      # s   (5s+max_iter1 diverged; 4s solve 1.1s = too laggy)
+
+  # Custom field read by the node (not by the MPC class itself):
+  target_speed: 0.30   # m/s cruise speed to track
+
+  # state = [along-track err, cross-track err, velocity err, heading err]
+  # control = [acceleration, steering angle]
+  # Tuned from live sim run (RMS=54 cm -> target <10 cm).
+  # Cross-track raised 50->100: lane-centering is the primary objective.
+  # Heading raised 25->40: keeps car aligned to path, prevents drift on curves.
+  # Steer rate raised 10->20: smoother wheel, less overshoot after overtake.
+  # Q_cross=100 saturated the steer (78%) and oscillated with the ~0.5s solve
+  # lag. Moderate tracking (60) + strong steer-rate DAMPING (20) is the stable
+  # combination: high gain + control delay = instability, so damp instead.
+  weights:
+    state_cost: [8, 60, 20, 30]
+    final_state_cost: [8, 60, 20, 30]
+    input_cost: [5, 5]
+    input_rate_cost: [20, 20]
+
+  obstacle:
+    safety_margin: 0.15   # inflation around the car (m); + width/2 inside MPC
+    slack_penalty: 100000 # soft-constraint weight (avoid infeasible crashes)

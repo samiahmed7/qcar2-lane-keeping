@@ -1,0 +1,137 @@
+mpc_lidar_obstacle_node:
+  ros__parameters:
+    use_sim_time: true
+    scan_topic: /qcar2/lidar/scan
+    odom_topic: /model/qcar2/odometry
+    obstacle_topic: /mpc/obstacle
+    front_angle_deg: 25.0
+    # Must exceed the planner's trigger_distance (2.6 m): the obstacle has to be
+    # fully within range so its WIDTH is measured correctly BEFORE the planner
+    # commits to a side. At 2.5 m (< trigger) only the centre sliver of a wide
+    # box was in range, so its width (and the "blocked" case) was missed.
+    detect_range_m: 3.5
+    min_points: 2
+    min_radius_m: 0.15
+    face_depth_tolerance_m: 0.30
+    forward_angle_rad: 0.0
+    side_angle_min_deg: 30.0
+    side_angle_max_deg: 150.0
+
+mpc_reference_planner_node:
+  ros__parameters:
+    use_sim_time: true
+    config_path: /home/hammad/rosbot_ws/src/qcar2_autonomous_lanes/qcar2_autonomy/config/mpc.yaml
+    waypoints_path: /home/hammad/rosbot_ws/track_waypoints.npy
+    odom_topic: /model/qcar2/odometry
+    obstacle_topic: /mpc/obstacle
+    reference_path_topic: /mpc/reference_path
+    target_speed_topic: /mpc/target_speed
+    mode_topic: /mpc/mode
+    loop: true
+    publish_rate_hz: 10.0
+    normal_speed: 0.55
+    lane_change_speed: 0.35
+    return_speed: 0.30
+    # Planner-level speed profile: the QCar2 sim plugin permits up to 2.0 m/s,
+    # but MPC should slow itself on curves from curvature and lateral accel.
+    speed_profile_enabled: true
+    max_straight_speed: 0.80
+    min_curve_speed: 0.18
+    max_lateral_accel_mps2: 0.45
+    curvature_lookahead_m: 1.20
+    speed_smoothing_alpha: 0.35
+    # Trigger far enough out that the full ramp_in fits BEFORE the box
+    # (trigger_distance should exceed ramp_in + a margin).
+    trigger_distance: 2.6
+    obstacle_timeout_sec: 0.8
+    cooldown_sec: 2.0
+    prefer_side: left
+    current_lane_half_width_m: 0.38
+    min_side_clearance_m: 0.6
+    # Widest the car CENTRE may swing off the centreline to pass. A normal box
+    # needs e* ~ 0.48 m, so 0.65 allows a single-lane overtake but rejects a
+    # wide / whole-road obstacle (e* > 0.65 on both sides) -> BLOCKED_STOP.
+    max_lateral_offset_m: 0.65
+    # When stopped: front distance that counts as "clear again", and the minimum
+    # dwell before we re-check / resume (auto-resume when the road opens up).
+    blocked_resume_distance_m: 3.0
+    blocked_min_stop_sec: 0.6
+    vehicle_width: 0.20
+    clearance_margin: 0.18
+    # Longer ramps => gentler, car-like S-curve. At e*~0.46 m:
+    #   ramp 0.9 m -> 39 deg peak heading (too sharp); 2.0 m -> ~20 deg (smooth).
+    ramp_in: 2.0
+    ramp_out: 2.0
+    hold_pad: 0.25
+    path_search_back_m: 0.5
+    path_search_ahead_m: 2.0
+    # Hybrid navigation + vision: navigation owns the route; vision applies the
+    # lane-centering lateral bias when the ML/camera signal is fresh.
+    lane_fusion_enabled: false
+    lane_model_topic: /qcar2/lane/model
+    lane_target_topic: /planning/validated_target_x
+    lane_image_center_px: 320.0
+    lane_width_m: 0.50
+    lane_px_to_m: 0.0015
+    lane_fusion_gain: 0.35
+    lane_fusion_alpha: 0.25
+    lane_fusion_max_correction_m: 0.06
+    lane_fusion_max_step_m: 0.006
+    lane_fusion_timeout_sec: 0.8
+    lane_fusion_min_confidence: 0.30
+    lane_fusion_hold_low_confidence: true
+    lane_fusion_disable_heading_delta_rad: 3.20
+    # Robust lane fusion gates: camera/BEV assists on straight, confident,
+    # low-uncertainty route segments; waypoints/MPC own intersections/roundabouts.
+    lane_fusion_heading_full_gain_rad: 0.25
+    lane_fusion_heading_zero_gain_rad: 1.20
+    lane_fusion_confidence_scaled: true
+    lane_fusion_min_confidence_gain: 0.25
+    lane_fusion_max_error_px: 220.0
+    lane_fusion_max_error_jump_px: 110.0
+    lane_fusion_obstacle_gate_distance_m: 1.20
+    lane_fusion_uncertainty_gate_m: 0.12
+    odom_uncertainty_smoothing_alpha: 0.25
+    uncertainty_speed_gain: 2.0
+    uncertainty_speed_min_factor: 0.45
+    # Slow adaptive correction for repeatable model/steering bias. This is
+    # separate from camera fusion and capped so it cannot move the route.
+    adaptive_bias_enabled: true
+    adaptive_bias_alpha: 0.03
+    adaptive_bias_gain: 0.35
+    adaptive_bias_max_m: 0.035
+    adaptive_bias_deadband_m: 0.015
+    adaptive_bias_min_speed_mps: 0.05
+    adaptive_bias_max_uncertainty_m: 0.08
+
+mpc_drive_node:
+  ros__parameters:
+    use_sim_time: true
+    config_path: /home/hammad/rosbot_ws/src/qcar2_autonomous_lanes/qcar2_autonomy/config/mpc.yaml
+    odom_topic: /model/qcar2/odometry
+    reference_path_topic: /mpc/reference_path
+    target_speed_topic: /mpc/target_speed
+    cmd_topic: /model/qcar2/cmd_vel
+    target_speed: 0.55
+    reference_timeout_sec: 0.8
+    publish_rate_hz: 20.0
+    command_smoothing_enabled: true
+    omega_smoothing_alpha: 0.80
+    max_omega_rate_rps2: 5.0
+
+mpc_sensor_noise_node:
+  ros__parameters:
+    use_sim_time: true
+    raw_odom_topic: /model/qcar2/odometry
+    raw_scan_topic: /qcar2/lidar/scan
+    noisy_odom_topic: /mpc/noisy_odometry
+    noisy_scan_topic: /mpc/noisy_scan
+    seed: 7
+    odom_position_stddev_m: 0.015
+    odom_yaw_stddev_rad: 0.010
+    odom_yaw_bias_rad: 0.005
+    odom_velocity_stddev_mps: 0.020
+    odom_angular_velocity_stddev_rps: 0.020
+    scan_range_stddev_m: 0.015
+    scan_range_bias_m: 0.005
+    scan_dropout_probability: 0.01
