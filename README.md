@@ -49,8 +49,8 @@ colcon build --symlink-install --packages-up-to qcar2_autonomy qcar2_bringup
 source install/setup.bash
 ```
 
-One-time MPC solver dependencies:
-
+## Quick start
+.
 ```bash
 python3 -m pip install --user --break-system-packages cvxpy clarabel
 ```
