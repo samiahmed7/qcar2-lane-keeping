@@ -27,10 +27,13 @@ setup(
         'console_scripts': [
             # ML perception (debug overlay / path recording aid)
             'rfdetr_onnx_lane_node = qcar2_autonomy.rfdetr_onnx_lane_node:main',
+            # BEV lane detector (classical white-line, right-lane) -- segmentation debug
+            'bev_lane_detector_node = qcar2_autonomy.bev_lane_detector_node:main',
             # Path recording
             'record_path_node = qcar2_autonomy.record_path_node:main',
             # MPC stack: perception -> planner -> tracker (+ run logger)
             'mpc_lidar_obstacle_node = qcar2_autonomy.mpc_lidar_obstacle_node:main',
+            'mpc_sensor_noise_node = qcar2_autonomy.mpc_sensor_noise_node:main',
             'mpc_reference_planner_node = qcar2_autonomy.mpc_reference_planner_node:main',
             'mpc_drive_node = qcar2_autonomy.mpc_drive_node:main',
             'mpc_logger_node = qcar2_autonomy.mpc_logger_node:main',

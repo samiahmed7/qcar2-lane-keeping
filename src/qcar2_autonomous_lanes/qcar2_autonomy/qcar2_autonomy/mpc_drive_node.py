@@ -50,6 +50,9 @@ class MpcDriveNode(Node):
         self.declare_parameter("target_speed", 0.30)
         self.declare_parameter("reference_timeout_sec", 0.8)
         self.declare_parameter("publish_rate_hz", 20.0)
+        self.declare_parameter("command_smoothing_enabled", True)
+        self.declare_parameter("omega_smoothing_alpha", 0.80)
+        self.declare_parameter("max_omega_rate_rps2", 5.0)
 
         self.mpc = MPC(str(self.get_parameter("config_path").value))
         self.dt = self.mpc.dt
@@ -59,10 +62,21 @@ class MpcDriveNode(Node):
             0.1,
             float(self.get_parameter("reference_timeout_sec").value),
         )
+        self.publish_rate = max(1.0, float(self.get_parameter("publish_rate_hz").value))
+        self.command_smoothing_enabled = bool(
+            self.get_parameter("command_smoothing_enabled").value
+        )
+        self.omega_smoothing_alpha = min(
+            1.0,
+            max(0.0, float(self.get_parameter("omega_smoothing_alpha").value)),
+        )
+        self.max_omega_rate = max(0.0, float(self.get_parameter("max_omega_rate_rps2").value))
 
         self.state = None
         self.reference_path = None
         self.reference_time = None
+        self.last_cmd_omega = 0.0
+        self.last_cmd_time = None
 
         self._lock = threading.Lock()
         self._plan_u = None
@@ -94,8 +108,7 @@ class MpcDriveNode(Node):
             10,
         )
 
-        publish_rate = max(1.0, float(self.get_parameter("publish_rate_hz").value))
-        self.create_timer(1.0 / publish_rate, self._publish_tick)
+        self.create_timer(1.0 / self.publish_rate, self._publish_tick)
         self.worker = threading.Thread(target=self._solve_loop, daemon=True)
         self.worker.start()
 
@@ -160,6 +173,8 @@ class MpcDriveNode(Node):
             self._plan_u = None
             self._plan_time = None
             self._plan_v0 = 0.0
+        self.last_cmd_omega = 0.0
+        self.last_cmd_time = None
 
     def _solve_loop(self):
         while not self._stop.is_set() and rclpy.ok():
@@ -222,8 +237,46 @@ class MpcDriveNode(Node):
         v_cmd = float(np.clip(v_cmd, 0.0, self.mpc.max_speed))
 
         out.linear.x = v_cmd
-        out.angular.z = v_cmd * math.tan(steer) / self.wheelbase
+        raw_omega = v_cmd * math.tan(steer) / self.wheelbase
+        out.angular.z = self._smooth_omega(raw_omega)
         self.cmd_pub.publish(out)
+
+    def _smooth_omega(self, raw_omega):
+        if not self.command_smoothing_enabled:
+            self.last_cmd_omega = float(raw_omega)
+            self.last_cmd_time = self.get_clock().now()
+            return float(raw_omega)
+
+        now = self.get_clock().now()
+        if self.last_cmd_time is None:
+            self.last_cmd_time = now
+            self.last_cmd_omega = float(raw_omega)
+            return float(raw_omega)
+
+        dt = (now - self.last_cmd_time).nanoseconds * 1e-9
+        if dt <= 1e-4:
+            dt = 1.0 / self.publish_rate
+        alpha = self.omega_smoothing_alpha
+        filtered = (
+            (1.0 - alpha) * self.last_cmd_omega
+            + alpha * float(raw_omega)
+        )
+        smoothed = self._rate_limit(
+            filtered,
+            self.last_cmd_omega,
+            self.max_omega_rate,
+            dt,
+        )
+        self.last_cmd_time = now
+        self.last_cmd_omega = smoothed
+        return smoothed
+
+    @staticmethod
+    def _rate_limit(value, previous, max_rate, dt):
+        if max_rate <= 0.0 or dt <= 0.0:
+            return float(value)
+        step = max_rate * dt
+        return float(np.clip(value, previous - step, previous + step))
 
     def destroy_node(self):
         self._stop.set()

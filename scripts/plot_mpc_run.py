@@ -4,7 +4,7 @@
     python3 scripts/plot_mpc_run.py [run_log.npz] [track_waypoints.npy]
 
 Panels:
-  (1) XY map: centreline, driven path, obstacles, predicted-horizon snapshots
+  (1) XY map: centreline, driven path, obstacles, reference-horizon snapshots
   (2) cross-track error vs time (lane-keeping quality)
   (3) speed: commanded v, target v, actual v
   (4) steering omega (commanded) + heading
@@ -12,8 +12,10 @@ Panels:
 """
 import sys
 import pathlib
+import os
 
 import numpy as np
+os.environ.setdefault("MPLCONFIGDIR", "/tmp/matplotlib")
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -34,11 +36,38 @@ wp = np.load(wp_path)                       # (2,N)
 
 t = actual[:, 0] if actual.size else np.array([])
 
-# cross-track error of actual path vs centreline (nearest-point, signed)
+# cross-track error of actual path vs centreline (progress-window nearest,
+# signed). A global nearest-point search can jump to a nearby wrong branch on
+# the university route and make the tracking graph lie.
 cx, cy = wp[0], wp[1]
 xt = []
+progress_idx = None
+seg_len = np.hypot(np.diff(cx), np.diff(cy))
+median_dl = float(np.median(seg_len)) if seg_len.size else 0.05
+is_loop_route = (
+    cx.size > 2
+    and np.hypot(cx[-1] - cx[0], cy[-1] - cy[0]) <= max(0.25, 4.0 * median_dl)
+)
+
+def _nearest_progress_idx(x, y):
+    global progress_idx
+    if progress_idx is None:
+        progress_idx = int(np.argmin((cx - x) ** 2 + (cy - y) ** 2))
+        return progress_idx
+
+    back_steps = max(1, int(np.ceil(0.75 / max(median_dl, 1e-6))))
+    ahead_steps = max(1, int(np.ceil(3.00 / max(median_dl, 1e-6))))
+    offsets = np.arange(-back_steps, ahead_steps + 1, dtype=int)
+    if is_loop_route:
+        candidates = (progress_idx + offsets) % cx.size
+    else:
+        candidates = np.unique(np.clip(progress_idx + offsets, 0, cx.size - 1))
+    k = int(np.argmin((cx[candidates] - x) ** 2 + (cy[candidates] - y) ** 2))
+    progress_idx = int(candidates[k])
+    return progress_idx
+
 for _, x, y, *_ in actual:
-    j = int(np.argmin((cx - x) ** 2 + (cy - y) ** 2))
+    j = _nearest_progress_idx(x, y)
     j2 = min(j + 1, cx.size - 1)
     th = np.arctan2(cy[j2] - cy[j], cx[j2] - cx[j])
     xt.append(-np.sin(th) * (x - cx[j]) + np.cos(th) * (y - cy[j]))
@@ -101,7 +130,7 @@ for i in range(0, len(ref_snaps), step):
     s = ref_snaps[i]
     axm.plot(s[:, 0], s[:, 1], "-", color="orange", lw=0.7, alpha=0.6)
 if ref_snaps:
-    axm.plot([], [], "-", color="orange", label="predicted horizons")
+    axm.plot([], [], "-", color="orange", label="reference horizons")
 # unique obstacle positions
 if obstacles.size:
     seen = set()
@@ -115,7 +144,7 @@ if obstacles.size:
     axm.plot([], [], "o", color="red", alpha=0.5, label="obstacle (radius)")
 axm.set_aspect("equal")
 axm.set_xlabel("x [m]"); axm.set_ylabel("y [m]")
-axm.set_title("Path tracking (centreline vs driven vs predicted)")
+axm.set_title("Path tracking (centreline vs driven vs reference)")
 axm.legend(loc="best", fontsize=9); axm.grid(alpha=0.3)
 
 # ---- (2) cross-track ----
@@ -146,7 +175,7 @@ if actual.size:
 # shade mode regions
 colors = {"LANE_KEEP_RIGHT": None, "LANE_CHANGE_LEFT": "orange",
           "LANE_CHANGE_RIGHT": "yellow", "PASS_OBSTACLE": "red",
-          "RETURN_RIGHT": "green"}
+          "RETURN_RIGHT": "green", "BLOCKED_STOP": "black"}
 if modes and t.size:
     tmax = t[-1]
     for i, (mt, mname) in enumerate(modes):

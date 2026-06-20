@@ -29,9 +29,17 @@ mpc_reference_planner_node:
     mode_topic: /mpc/mode
     loop: true
     publish_rate_hz: 10.0
-    normal_speed: 0.25
-    lane_change_speed: 0.15
-    return_speed: 0.10
+    normal_speed: 0.55
+    lane_change_speed: 0.35
+    return_speed: 0.30
+    # Planner-level speed profile: the QCar2 sim plugin permits up to 2.0 m/s,
+    # but MPC should slow itself on curves from curvature and lateral accel.
+    speed_profile_enabled: true
+    max_straight_speed: 0.80
+    min_curve_speed: 0.18
+    max_lateral_accel_mps2: 0.45
+    curvature_lookahead_m: 1.20
+    speed_smoothing_alpha: 0.35
     # Trigger far enough out that the full ramp_in fits BEFORE the box
     # (trigger_distance should exceed ramp_in + a margin).
     trigger_distance: 2.6
@@ -65,12 +73,36 @@ mpc_reference_planner_node:
     lane_image_center_px: 320.0
     lane_width_m: 0.50
     lane_px_to_m: 0.0015
-    lane_fusion_gain: 1.15
-    lane_fusion_alpha: 0.45
-    lane_fusion_max_correction_m: 0.30
+    lane_fusion_gain: 0.35
+    lane_fusion_alpha: 0.25
+    lane_fusion_max_correction_m: 0.06
+    lane_fusion_max_step_m: 0.006
     lane_fusion_timeout_sec: 0.8
-    lane_fusion_min_confidence: 0.45
+    lane_fusion_min_confidence: 0.30
+    lane_fusion_hold_low_confidence: true
     lane_fusion_disable_heading_delta_rad: 3.20
+    # Robust lane fusion gates: camera/BEV assists on straight, confident,
+    # low-uncertainty route segments; waypoints/MPC own intersections/roundabouts.
+    lane_fusion_heading_full_gain_rad: 0.25
+    lane_fusion_heading_zero_gain_rad: 1.20
+    lane_fusion_confidence_scaled: true
+    lane_fusion_min_confidence_gain: 0.25
+    lane_fusion_max_error_px: 220.0
+    lane_fusion_max_error_jump_px: 110.0
+    lane_fusion_obstacle_gate_distance_m: 1.20
+    lane_fusion_uncertainty_gate_m: 0.12
+    odom_uncertainty_smoothing_alpha: 0.25
+    uncertainty_speed_gain: 2.0
+    uncertainty_speed_min_factor: 0.45
+    # Slow adaptive correction for repeatable model/steering bias. This is
+    # separate from camera fusion and capped so it cannot move the route.
+    adaptive_bias_enabled: true
+    adaptive_bias_alpha: 0.03
+    adaptive_bias_gain: 0.35
+    adaptive_bias_max_m: 0.035
+    adaptive_bias_deadband_m: 0.015
+    adaptive_bias_min_speed_mps: 0.05
+    adaptive_bias_max_uncertainty_m: 0.08
 
 mpc_drive_node:
   ros__parameters:
@@ -80,6 +112,26 @@ mpc_drive_node:
     reference_path_topic: /mpc/reference_path
     target_speed_topic: /mpc/target_speed
     cmd_topic: /model/qcar2/cmd_vel
-    target_speed: 0.30
+    target_speed: 0.55
     reference_timeout_sec: 0.8
     publish_rate_hz: 20.0
+    command_smoothing_enabled: true
+    omega_smoothing_alpha: 0.80
+    max_omega_rate_rps2: 5.0
+
+mpc_sensor_noise_node:
+  ros__parameters:
+    use_sim_time: true
+    raw_odom_topic: /model/qcar2/odometry
+    raw_scan_topic: /qcar2/lidar/scan
+    noisy_odom_topic: /mpc/noisy_odometry
+    noisy_scan_topic: /mpc/noisy_scan
+    seed: 7
+    odom_position_stddev_m: 0.015
+    odom_yaw_stddev_rad: 0.010
+    odom_yaw_bias_rad: 0.005
+    odom_velocity_stddev_mps: 0.020
+    odom_angular_velocity_stddev_rps: 0.020
+    scan_range_stddev_m: 0.015
+    scan_range_bias_m: 0.005
+    scan_dropout_probability: 0.01

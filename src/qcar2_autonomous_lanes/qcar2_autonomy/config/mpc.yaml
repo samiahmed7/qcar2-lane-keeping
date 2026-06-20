@@ -3,9 +3,9 @@ model:
   vehicle:
     wheelbase: 0.256   # QCar2 axle-to-axle (m), matches kinematics_node
     width: 0.20        # QCar2 body width (m)
-    max_speed: 0.35    # m/s; keep failed recovery from accelerating away
-    max_acc: 0.50      # m/s^2
-    max_d_acc: 1.00    # m/s^3 (jerk)
+    max_speed: 1.00    # m/s; below sim cap (2.0), planner slows for curves
+    max_acc: 1.00      # m/s^2
+    max_d_acc: 1.50    # m/s^3 (jerk)
     max_steer: 0.50    # rad (~28 deg)
     max_d_steer: 1.20  # rad/s
 

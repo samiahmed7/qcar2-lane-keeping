@@ -7,6 +7,8 @@ WS="$(pwd)"
 source /opt/ros/jazzy/setup.bash
 source "$WS/install/setup.bash"
 LOG=/tmp/autorun; mkdir -p "$LOG"
+rm -f "$LOG"/sim.log "$LOG"/mpc.log "$LOG"/logger.log "$LOG"/plot.log \
+  "$LOG"/fusion.log "$LOG"/bev.log "$LOG"/box.log "$LOG"/local_waypoints.npy
 SPEED="${SPEED:-0.22}"
 DUR="${DUR:-120}"
 START_LANE="${START_LANE:-center}"
@@ -30,6 +32,7 @@ cleanup() {
   pkill -9 -f mpc_reference_planner_node  >/dev/null 2>&1
   pkill -9 -f mpc_lidar_obstacle_node     >/dev/null 2>&1
   pkill -9 -f mpc_logger_node             >/dev/null 2>&1
+  pkill -9 -f bev_lane_detector           >/dev/null 2>&1
 }
 
 echo "[1/6] tearing down any stale sim"
@@ -98,13 +101,45 @@ if [ -n "${OBSTACLE:-}" ]; then
   ./scripts/spawn_box.sh ${OBSTACLE} >"$LOG/box.log" 2>&1 || echo "  spawn_box failed (see $LOG/box.log)"
   sleep 2
 fi
-echo "[4/6] launching MPC stack (route, loop=false, speed=$SPEED)"
+FUSION_ARGS=""
+case "${LANE_FUSION:-}" in
+  1|true|yes|on|TRUE|YES|ON)
+    echo "[fusion] BEV lane detector + lane fusion ON"
+    nohup ros2 run qcar2_autonomy bev_lane_detector_node --ros-args \
+      -p use_sim_time:=true -p image_topic:=/qcar2/front_camera/image \
+      -p lane_model_topic:=/qcar2/lane/model -p debug_topic:=/qcar2/lane/debug_image \
+      -p use_ipm:=true >"$LOG/bev.log" 2>&1 &
+    sleep 4
+    FUSION_ARGS="lane_fusion_enabled:=true lane_model_topic:=/qcar2/lane/model lane_fusion_max_correction_m:=${LANE_FUSION_MAX_CORRECTION:-0.06} lane_fusion_max_step_m:=${LANE_FUSION_MAX_STEP:-0.006} lane_fusion_gain:=${LANE_FUSION_GAIN:-0.35} lane_fusion_alpha:=${LANE_FUSION_ALPHA:-0.25} lane_fusion_min_confidence:=${LANE_FUSION_MIN_CONFIDENCE:-0.30} lane_fusion_hold_low_confidence:=${LANE_FUSION_HOLD_LOW_CONFIDENCE:-true} lane_fusion_disable_heading_delta_rad:=${LANE_FUSION_HEADING_GATE:-3.20}"
+    ;;
+esac
+
+NOISE_ARGS=""
+case "${SIM_NOISE:-${SENSOR_NOISE:-}}" in
+  1|true|yes|on|TRUE|YES|ON)
+    echo "[noise] sensor noise ON (LiDAR + gyro/odom): MPC reads /mpc/noisy_odometry + /mpc/noisy_scan"
+    NOISE_ARGS="sensor_noise_enabled:=true odom_topic:=/mpc/noisy_odometry scan_topic:=/mpc/noisy_scan"
+    ;;
+esac
+
+echo "[4/6] launching MPC stack (route, loop=false, speed=$SPEED, fusion=${LANE_FUSION:-0}, noise=${SIM_NOISE:-0})"
 echo "      source waypoints: $WP"
 echo "      using waypoints:  $WP_RUN"
 nohup ros2 launch qcar2_autonomy mpc.launch.py \
   waypoints_path:="$WP_RUN" \
   target_speed:=$SPEED loop:=false \
+  command_smoothing_enabled:=${COMMAND_SMOOTHING:-true} \
+  omega_smoothing_alpha:=${OMEGA_SMOOTHING_ALPHA:-0.80} \
+  max_omega_rate_rps2:=${MAX_OMEGA_RATE:-5.0} \
+  $FUSION_ARGS \
+  $NOISE_ARGS \
   >"$LOG/mpc.log" 2>&1 &
+
+if [ -n "$FUSION_ARGS" ]; then
+  ( for i in $(seq 1 8); do printf "fusion@%s: " "$i"
+      timeout 4 ros2 topic echo /mpc/lane_fusion_status --field data --once 2>/dev/null || echo "(none)"
+      sleep $((DUR / 8)); done ) >"$LOG/fusion.log" 2>&1 &
+fi
 
 echo "[5/6] recording ${DUR}s (logger auto-saves)"
 timeout -s INT $((DUR + 15)) ros2 run qcar2_autonomy mpc_logger_node --ros-args \
@@ -119,5 +154,6 @@ echo "--- logger.log tail ---"; tail -3 "$LOG/logger.log"
 echo "--- plot.log tail ---"; tail -3 "$LOG/plot.log"
 echo "--- modes / problems from mpc.log ---"
 grep -iE "planner:|mode|infeasible|BLOCK|solve error" "$LOG/mpc.log" | tail -15
+[ -f "$LOG/fusion.log" ] && { echo "--- lane fusion status ---"; cat "$LOG/fusion.log"; }
 ls -la "$WS"/mpc_run_plot.png /tmp/mpc_run_plot.png 2>/dev/null
 echo "AUTORUN DONE"

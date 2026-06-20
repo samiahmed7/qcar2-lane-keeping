@@ -9,7 +9,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 
 
-def compute_path_from_wp(start_xp, start_yp, step=0.1):
+def compute_path_from_wp(start_xp, start_yp, step=0.1, heading_window_m=0.35):
     """Dense reference path [x, y, theta] (3, N) from sparse waypoints."""
     final_xp = []
     final_yp = []
@@ -27,11 +27,39 @@ def compute_path_from_wp(start_xp, start_yp, step=0.1):
         fy = interp1d(np.linspace(0, 1, 2), start_yp[idx : idx + 2], kind="linear")
         final_xp = np.append(final_xp, fx(interp_range)[1:])
         final_yp = np.append(final_yp, fy(interp_range)[1:])
-    dx = np.diff(final_xp)
-    dy = np.diff(final_yp)
-    theta = np.arctan2(dy, dx)
-    theta = np.append(theta, theta[-1])
+    theta = _local_tangent_heading(final_xp, final_yp, step, heading_window_m)
     return np.vstack((final_xp, final_yp, theta))
+
+
+def _local_tangent_heading(x, y, step, window_m):
+    """Heading from a local chord instead of adjacent samples.
+
+    The waypoints stay exactly where they are; only the heading reference is
+    smoothed. This removes small stair-step heading changes that make the MPC
+    hunt left/right on otherwise smooth curves.
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+    if x.size < 2:
+        return np.zeros_like(x)
+    half_window = max(1, int(round(float(window_m) / max(float(step), 1e-6))))
+    theta = np.zeros_like(x)
+    for i in range(x.size):
+        i0 = max(0, i - half_window)
+        i1 = min(x.size - 1, i + half_window)
+        if i1 == i0:
+            i0 = max(0, i - 1)
+            i1 = min(x.size - 1, i + 1)
+        dx = x[i1] - x[i0]
+        dy = y[i1] - y[i0]
+        if abs(dx) < 1e-9 and abs(dy) < 1e-9:
+            if i > 0:
+                theta[i] = theta[i - 1]
+            else:
+                theta[i] = 0.0
+        else:
+            theta[i] = np.arctan2(dy, dx)
+    return np.unwrap(theta)
 
 
 def get_nn_idx(state, path):

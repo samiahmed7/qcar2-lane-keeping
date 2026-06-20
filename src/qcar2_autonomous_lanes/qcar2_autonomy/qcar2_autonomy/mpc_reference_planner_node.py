@@ -54,6 +54,12 @@ class MpcReferencePlannerNode(Node):
         self.declare_parameter("normal_speed", 0.30)
         self.declare_parameter("lane_change_speed", 0.18)
         self.declare_parameter("return_speed", 0.12)
+        self.declare_parameter("speed_profile_enabled", True)
+        self.declare_parameter("max_straight_speed", 0.80)
+        self.declare_parameter("min_curve_speed", 0.18)
+        self.declare_parameter("max_lateral_accel_mps2", 0.45)
+        self.declare_parameter("curvature_lookahead_m", 1.20)
+        self.declare_parameter("speed_smoothing_alpha", 0.35)
         self.declare_parameter("trigger_distance", 2.0)
         self.declare_parameter("obstacle_timeout_sec", 0.8)
         self.declare_parameter("cooldown_sec", 2.0)
@@ -81,12 +87,32 @@ class MpcReferencePlannerNode(Node):
         self.declare_parameter("lane_image_center_px", 320.0)
         self.declare_parameter("lane_width_m", 0.50)
         self.declare_parameter("lane_px_to_m", 0.0015)
-        self.declare_parameter("lane_fusion_gain", 1.15)
-        self.declare_parameter("lane_fusion_alpha", 0.45)
-        self.declare_parameter("lane_fusion_max_correction_m", 0.30)
+        self.declare_parameter("lane_fusion_gain", 0.35)
+        self.declare_parameter("lane_fusion_alpha", 0.25)
+        self.declare_parameter("lane_fusion_max_correction_m", 0.06)
+        self.declare_parameter("lane_fusion_max_step_m", 0.006)
         self.declare_parameter("lane_fusion_timeout_sec", 0.8)
-        self.declare_parameter("lane_fusion_min_confidence", 0.45)
+        self.declare_parameter("lane_fusion_min_confidence", 0.30)
+        self.declare_parameter("lane_fusion_hold_low_confidence", True)
         self.declare_parameter("lane_fusion_disable_heading_delta_rad", 3.20)
+        self.declare_parameter("lane_fusion_heading_full_gain_rad", 0.25)
+        self.declare_parameter("lane_fusion_heading_zero_gain_rad", 1.20)
+        self.declare_parameter("lane_fusion_confidence_scaled", True)
+        self.declare_parameter("lane_fusion_min_confidence_gain", 0.25)
+        self.declare_parameter("lane_fusion_max_error_px", 220.0)
+        self.declare_parameter("lane_fusion_max_error_jump_px", 110.0)
+        self.declare_parameter("lane_fusion_obstacle_gate_distance_m", 1.20)
+        self.declare_parameter("lane_fusion_uncertainty_gate_m", 0.12)
+        self.declare_parameter("odom_uncertainty_smoothing_alpha", 0.25)
+        self.declare_parameter("uncertainty_speed_gain", 2.0)
+        self.declare_parameter("uncertainty_speed_min_factor", 0.45)
+        self.declare_parameter("adaptive_bias_enabled", True)
+        self.declare_parameter("adaptive_bias_alpha", 0.03)
+        self.declare_parameter("adaptive_bias_gain", 0.35)
+        self.declare_parameter("adaptive_bias_max_m", 0.035)
+        self.declare_parameter("adaptive_bias_deadband_m", 0.015)
+        self.declare_parameter("adaptive_bias_min_speed_mps", 0.05)
+        self.declare_parameter("adaptive_bias_max_uncertainty_m", 0.08)
 
         self.config_path = pathlib.Path(str(self.get_parameter("config_path").value))
         config = self._load_config(self.config_path)
@@ -98,6 +124,21 @@ class MpcReferencePlannerNode(Node):
         self.normal_speed = float(self.get_parameter("normal_speed").value)
         self.lane_change_speed = float(self.get_parameter("lane_change_speed").value)
         self.return_speed = float(self.get_parameter("return_speed").value)
+        self.speed_profile_enabled = bool(
+            self.get_parameter("speed_profile_enabled").value
+        )
+        self.max_straight_speed = float(self.get_parameter("max_straight_speed").value)
+        self.min_curve_speed = float(self.get_parameter("min_curve_speed").value)
+        self.max_lateral_accel = float(
+            self.get_parameter("max_lateral_accel_mps2").value
+        )
+        self.curvature_lookahead = float(
+            self.get_parameter("curvature_lookahead_m").value
+        )
+        self.speed_smoothing_alpha = min(
+            1.0,
+            max(0.0, float(self.get_parameter("speed_smoothing_alpha").value)),
+        )
         self.trigger_distance = float(self.get_parameter("trigger_distance").value)
         self.obstacle_timeout_sec = float(self.get_parameter("obstacle_timeout_sec").value)
         self.cooldown_sec = float(self.get_parameter("cooldown_sec").value)
@@ -125,14 +166,74 @@ class MpcReferencePlannerNode(Node):
         self.lane_fusion_max_correction = abs(
             float(self.get_parameter("lane_fusion_max_correction_m").value)
         )
+        self.lane_fusion_max_step = abs(
+            float(self.get_parameter("lane_fusion_max_step_m").value)
+        )
         self.lane_fusion_timeout_sec = float(
             self.get_parameter("lane_fusion_timeout_sec").value
         )
         self.lane_fusion_min_confidence = float(
             self.get_parameter("lane_fusion_min_confidence").value
         )
+        self.lane_fusion_hold_low_confidence = bool(
+            self.get_parameter("lane_fusion_hold_low_confidence").value
+        )
         self.lane_fusion_disable_heading_delta = float(
             self.get_parameter("lane_fusion_disable_heading_delta_rad").value
+        )
+        self.lane_fusion_heading_full_gain = float(
+            self.get_parameter("lane_fusion_heading_full_gain_rad").value
+        )
+        self.lane_fusion_heading_zero_gain = float(
+            self.get_parameter("lane_fusion_heading_zero_gain_rad").value
+        )
+        self.lane_fusion_confidence_scaled = bool(
+            self.get_parameter("lane_fusion_confidence_scaled").value
+        )
+        self.lane_fusion_min_confidence_gain = min(
+            1.0,
+            max(0.0, float(self.get_parameter("lane_fusion_min_confidence_gain").value)),
+        )
+        self.lane_fusion_max_error_px = float(
+            self.get_parameter("lane_fusion_max_error_px").value
+        )
+        self.lane_fusion_max_error_jump_px = float(
+            self.get_parameter("lane_fusion_max_error_jump_px").value
+        )
+        self.lane_fusion_obstacle_gate_distance = float(
+            self.get_parameter("lane_fusion_obstacle_gate_distance_m").value
+        )
+        self.lane_fusion_uncertainty_gate = float(
+            self.get_parameter("lane_fusion_uncertainty_gate_m").value
+        )
+        self.odom_uncertainty_smoothing_alpha = min(
+            1.0,
+            max(0.0, float(self.get_parameter("odom_uncertainty_smoothing_alpha").value)),
+        )
+        self.uncertainty_speed_gain = float(
+            self.get_parameter("uncertainty_speed_gain").value
+        )
+        self.uncertainty_speed_min_factor = min(
+            1.0,
+            max(0.0, float(self.get_parameter("uncertainty_speed_min_factor").value)),
+        )
+        self.adaptive_bias_enabled = bool(
+            self.get_parameter("adaptive_bias_enabled").value
+        )
+        self.adaptive_bias_alpha = min(
+            1.0,
+            max(0.0, float(self.get_parameter("adaptive_bias_alpha").value)),
+        )
+        self.adaptive_bias_gain = float(self.get_parameter("adaptive_bias_gain").value)
+        self.adaptive_bias_max = abs(float(self.get_parameter("adaptive_bias_max_m").value))
+        self.adaptive_bias_deadband = abs(
+            float(self.get_parameter("adaptive_bias_deadband_m").value)
+        )
+        self.adaptive_bias_min_speed = float(
+            self.get_parameter("adaptive_bias_min_speed_mps").value
+        )
+        self.adaptive_bias_max_uncertainty = float(
+            self.get_parameter("adaptive_bias_max_uncertainty_m").value
         )
 
         wp_file = pathlib.Path(str(self.get_parameter("waypoints_path").value))
@@ -174,6 +275,11 @@ class MpcReferencePlannerNode(Node):
         self.lane_target_time = None
         self.lane_fusion_correction = 0.0
         self.lane_fusion_status = "disabled"
+        self.smoothed_speed = None
+        self.state_uncertainty_m = 0.0
+        self.last_accepted_lane_error_px = None
+        self.adaptive_lane_bias = 0.0
+        self.last_cross_track_error = 0.0
 
         self.reference_pub = self.create_publisher(
             Path,
@@ -246,6 +352,21 @@ class MpcReferencePlannerNode(Node):
             [float(p.x), float(p.y), float(msg.twist.twist.linear.x), yaw],
             dtype=float,
         )
+        self._update_state_uncertainty(msg)
+
+    def _update_state_uncertainty(self, msg: Odometry):
+        cov = np.asarray(msg.pose.covariance, dtype=float)
+        if cov.size < 36:
+            measured = 0.0
+        else:
+            vx = cov[0] if math.isfinite(cov[0]) and cov[0] > 0.0 else 0.0
+            vy = cov[7] if math.isfinite(cov[7]) and cov[7] > 0.0 else 0.0
+            measured = math.sqrt(max(0.0, vx + vy))
+        alpha = self.odom_uncertainty_smoothing_alpha
+        self.state_uncertainty_m = (
+            (1.0 - alpha) * self.state_uncertainty_m
+            + alpha * measured
+        )
 
     def _on_obstacle(self, msg: Float32MultiArray):
         if len(msg.data) < 6:
@@ -279,6 +400,7 @@ class MpcReferencePlannerNode(Node):
 
         self._update_path_index()
         self._update_behavior()
+        self._update_adaptive_bias()
         speed = self._target_speed()
         ref = self.planner.reference(
             self.state,
@@ -293,22 +415,40 @@ class MpcReferencePlannerNode(Node):
         self._publish_reference(ref, speed)
 
     def _apply_lane_fusion(self, ref):
-        target_correction = 0.0
+        camera_correction = 0.0
         if not self.lane_fusion_enabled:
             self.lane_fusion_status = "disabled"
         elif self.mode == LANE_KEEP_RIGHT:
-            target_correction = self._lane_fusion_target(ref)
+            camera_correction = self._lane_fusion_target(ref)
         else:
             self.lane_fusion_status = f"mode_gate:{self.mode}"
 
+        bias = self._adaptive_bias_correction()
+        target_correction = camera_correction + bias
+        total_limit = self.lane_fusion_max_correction + self.adaptive_bias_max
+        if total_limit > 0.0:
+            target_correction = float(
+                np.clip(target_correction, -total_limit, total_limit)
+            )
         alpha = self.lane_fusion_alpha
-        self.lane_fusion_correction = (
+        blended = (
             (1.0 - alpha) * self.lane_fusion_correction
             + alpha * target_correction
         )
+        if self.lane_fusion_max_step > 0.0:
+            delta = float(np.clip(
+                blended - self.lane_fusion_correction,
+                -self.lane_fusion_max_step,
+                self.lane_fusion_max_step,
+            ))
+            self.lane_fusion_correction += delta
+        else:
+            self.lane_fusion_correction = blended
         self.lane_fusion_pub.publish(Float32(data=float(self.lane_fusion_correction)))
         self.lane_fusion_status_pub.publish(String(data=(
             f"{self.lane_fusion_status} "
+            f"camera={camera_correction:+.3f}m "
+            f"bias={bias:+.3f}m "
             f"target={target_correction:+.3f}m "
             f"offset={self.lane_fusion_correction:+.3f}m"
         )))
@@ -326,12 +466,20 @@ class MpcReferencePlannerNode(Node):
         if heading_change > self.lane_fusion_disable_heading_delta:
             self.lane_fusion_status = f"heading_gate:{heading_change:.2f}rad"
             return 0.0
+        route_gain = self._lane_fusion_route_gain(heading_change)
+        if route_gain <= 0.0:
+            self.lane_fusion_status = f"route_curve_gate:{heading_change:.2f}rad"
+            return 0.0
+        if self._lane_fusion_obstacle_gate_active():
+            self.lane_fusion_status = "obstacle_gate"
+            return 0.0
 
         self.lane_fusion_status = "no_lane_target"
         now = self.get_clock().now()
         error_px = None
         px_to_m = self.lane_px_to_m
         source = None
+        confidence_gain = 1.0
 
         if self.lane_model is not None and self.lane_model_time is not None:
             age = (now - self.lane_model_time).nanoseconds * 1e-9
@@ -343,6 +491,7 @@ class MpcReferencePlannerNode(Node):
             ):
                 error_px = float(lane.error_px)
                 source = f"model:conf={lane.confidence:.2f},age={age:.2f}s"
+                confidence_gain = self._lane_confidence_gain(float(lane.confidence))
                 if (
                     math.isfinite(lane.estimated_lane_width_px)
                     and lane.estimated_lane_width_px > 1.0
@@ -351,6 +500,14 @@ class MpcReferencePlannerNode(Node):
             elif age > self.lane_fusion_timeout_sec:
                 self.lane_fusion_status = f"stale_model:{age:.2f}s"
             elif lane.confidence < self.lane_fusion_min_confidence:
+                if (
+                    self.lane_fusion_hold_low_confidence
+                    and abs(self.lane_fusion_correction) > 1e-4
+                ):
+                    self.lane_fusion_status = (
+                        f"hold_low_model_conf:{lane.confidence:.2f}"
+                    )
+                    return float(self.lane_fusion_correction)
                 self.lane_fusion_status = f"low_model_conf:{lane.confidence:.2f}"
             elif not math.isfinite(lane.error_px):
                 self.lane_fusion_status = "bad_model_error"
@@ -368,19 +525,85 @@ class MpcReferencePlannerNode(Node):
             if self.lane_fusion_status in ("disabled", ""):
                 self.lane_fusion_status = "no_lane_target"
             return 0.0
+        if abs(error_px) > self.lane_fusion_max_error_px:
+            self.lane_fusion_status = f"error_gate:{error_px:+.1f}px"
+            return 0.0
+        if (
+            self.last_accepted_lane_error_px is not None
+            and abs(error_px - self.last_accepted_lane_error_px)
+            > self.lane_fusion_max_error_jump_px
+        ):
+            self.lane_fusion_status = (
+                f"error_jump_gate:{error_px:+.1f}px"
+            )
+            return 0.0
 
         # Positive image error means the lane target is to the camera's right,
         # so shift the reference to the vehicle's right (negative path-left).
-        correction = -error_px * px_to_m * self.lane_fusion_gain
+        uncertainty_gain = self._lane_uncertainty_gain()
+        if uncertainty_gain <= 0.0:
+            self.lane_fusion_status = (
+                f"uncertainty_gate:{self.state_uncertainty_m:.3f}m"
+            )
+            return 0.0
+        correction = (
+            -error_px
+            * px_to_m
+            * self.lane_fusion_gain
+            * route_gain
+            * confidence_gain
+            * uncertainty_gain
+        )
         correction = float(np.clip(
             correction,
             -self.lane_fusion_max_correction,
             self.lane_fusion_max_correction,
         ))
+        self.last_accepted_lane_error_px = float(error_px)
         self.lane_fusion_status = (
-            f"active:{source},error={error_px:+.1f}px,px_to_m={px_to_m:.5f}"
+            f"active:{source},error={error_px:+.1f}px,px_to_m={px_to_m:.5f},"
+            f"route={route_gain:.2f},conf_gain={confidence_gain:.2f},"
+            f"unc={uncertainty_gain:.2f}"
         )
         return correction
+
+    def _lane_fusion_route_gain(self, heading_change):
+        full = max(0.0, self.lane_fusion_heading_full_gain)
+        zero = max(full + 1e-3, self.lane_fusion_heading_zero_gain)
+        if heading_change <= full:
+            return 1.0
+        if heading_change >= zero:
+            return 0.0
+        return float(1.0 - (heading_change - full) / (zero - full))
+
+    def _lane_confidence_gain(self, confidence):
+        if not self.lane_fusion_confidence_scaled:
+            return 1.0
+        if confidence <= self.lane_fusion_min_confidence:
+            return 0.0
+        denom = max(1e-6, 1.0 - self.lane_fusion_min_confidence)
+        scaled = (confidence - self.lane_fusion_min_confidence) / denom
+        return float(
+            self.lane_fusion_min_confidence_gain
+            + (1.0 - self.lane_fusion_min_confidence_gain)
+            * np.clip(scaled, 0.0, 1.0)
+        )
+
+    def _lane_uncertainty_gain(self):
+        gate = self.lane_fusion_uncertainty_gate
+        if gate <= 0.0:
+            return 1.0
+        uncertainty = max(0.0, self.state_uncertainty_m)
+        if uncertainty >= gate:
+            return 0.0
+        return float(1.0 - uncertainty / gate)
+
+    def _lane_fusion_obstacle_gate_active(self):
+        if self.lane_fusion_obstacle_gate_distance <= 0.0:
+            return False
+        if not self._obstacle_is_fresh() or self.obstacle is None:
+            return False
+        return self.obstacle["front_distance"] <= self.lane_fusion_obstacle_gate_distance
 
     def _reference_heading_change(self, ref):
         n = min(ref.shape[1], 6)
@@ -593,12 +816,111 @@ class MpcReferencePlannerNode(Node):
 
     def _target_speed(self):
         if self.mode == BLOCKED_STOP:
+            self.smoothed_speed = 0.0
             return 0.0
         if self.mode == RETURN_RIGHT:
-            return self.return_speed
-        if self.mode in (LANE_CHANGE_LEFT, LANE_CHANGE_RIGHT, PASS_OBSTACLE):
-            return self.lane_change_speed
-        return self.normal_speed
+            base_speed = self.return_speed
+        elif self.mode in (LANE_CHANGE_LEFT, LANE_CHANGE_RIGHT, PASS_OBSTACLE):
+            base_speed = self.lane_change_speed
+        else:
+            base_speed = self.normal_speed
+
+        if self.speed_profile_enabled and base_speed > 0.0:
+            base_speed = self._curvature_limited_speed(base_speed)
+        base_speed *= self._uncertainty_speed_factor()
+
+        if self.smoothed_speed is None:
+            self.smoothed_speed = base_speed
+        else:
+            alpha = self.speed_smoothing_alpha
+            self.smoothed_speed = (1.0 - alpha) * self.smoothed_speed + alpha * base_speed
+        return float(max(0.0, self.smoothed_speed))
+
+    def _uncertainty_speed_factor(self):
+        if self.uncertainty_speed_gain <= 0.0:
+            return 1.0
+        factor = 1.0 - self.uncertainty_speed_gain * max(0.0, self.state_uncertainty_m)
+        return float(np.clip(factor, self.uncertainty_speed_min_factor, 1.0))
+
+    def _curvature_limited_speed(self, requested_speed):
+        cap = min(float(requested_speed), self.max_straight_speed)
+        curvature = self._path_curvature_ahead()
+        if curvature <= 1e-4 or self.max_lateral_accel <= 0.0:
+            return cap
+
+        curve_speed = math.sqrt(self.max_lateral_accel / curvature)
+        curve_speed = max(self.min_curve_speed, min(cap, curve_speed))
+        return float(curve_speed)
+
+    def _path_curvature_ahead(self):
+        if self.path_index is None or self.planner.M < 2:
+            return 0.0
+        i0 = int(self.path_index)
+        if self.loop:
+            i0 %= self.planner.M
+        else:
+            i0 = int(np.clip(i0, 0, self.planner.M - 1))
+
+        s0 = float(self.planner.s[i0])
+        lookahead = max(self.planner.dl, self.curvature_lookahead)
+        if self.loop and self.planner.total_len > 0.0:
+            s1 = (s0 + lookahead) % self.planner.total_len
+            i1 = self.planner._idx_at_s(s1, loop=True)
+            ds = (self.planner.s[i1] - s0) % self.planner.total_len
+        else:
+            s1 = min(s0 + lookahead, self.planner.total_len)
+            i1 = self.planner._idx_at_s(s1, loop=False)
+            ds = max(self.planner.s[i1] - s0, self.planner.dl)
+
+        dpsi = math.atan2(
+            math.sin(self.planner.psip[i1] - self.planner.psip[i0]),
+            math.cos(self.planner.psip[i1] - self.planner.psip[i0]),
+        )
+        return abs(dpsi) / max(abs(ds), self.planner.dl, 1e-6)
+
+    def _update_adaptive_bias(self):
+        if not self.adaptive_bias_enabled or self.state is None or self.path_index is None:
+            self._decay_adaptive_bias()
+            return
+        if self.mode != LANE_KEEP_RIGHT or self.overtake is not None:
+            self._decay_adaptive_bias()
+            return
+        if abs(float(self.state[2])) < self.adaptive_bias_min_speed:
+            self._decay_adaptive_bias()
+            return
+        if self.state_uncertainty_m > self.adaptive_bias_max_uncertainty:
+            self._decay_adaptive_bias()
+            return
+
+        error = self._cross_track_error()
+        self.last_cross_track_error = error
+        if abs(error) < self.adaptive_bias_deadband:
+            target = 0.0
+        else:
+            target = -self.adaptive_bias_gain * error
+        target = float(np.clip(target, -self.adaptive_bias_max, self.adaptive_bias_max))
+        alpha = self.adaptive_bias_alpha
+        self.adaptive_lane_bias = (1.0 - alpha) * self.adaptive_lane_bias + alpha * target
+
+    def _decay_adaptive_bias(self):
+        alpha = self.adaptive_bias_alpha
+        self.adaptive_lane_bias = (1.0 - alpha) * self.adaptive_lane_bias
+
+    def _adaptive_bias_correction(self):
+        if not self.adaptive_bias_enabled or self.mode != LANE_KEEP_RIGHT:
+            return 0.0
+        return float(np.clip(
+            self.adaptive_lane_bias,
+            -self.adaptive_bias_max,
+            self.adaptive_bias_max,
+        ))
+
+    def _cross_track_error(self):
+        idx = int(np.clip(self.path_index, 0, self.planner.M - 1))
+        dx = float(self.state[0] - self.planner.xp[idx])
+        dy = float(self.state[1] - self.planner.yp[idx])
+        psi = float(self.planner.psip[idx])
+        return -math.sin(psi) * dx + math.cos(psi) * dy
 
     def _publish_reference(self, ref, speed):
         stamp = self.get_clock().now().to_msg()

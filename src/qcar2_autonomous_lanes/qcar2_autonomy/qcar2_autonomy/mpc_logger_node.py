@@ -145,11 +145,20 @@ class MpcLoggerNode(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = MpcLoggerNode()
+    saved = False
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, rclpy.executors.ExternalShutdownException):
+        # Ctrl-C / SIGINT (the launcher sends an external shutdown, which is NOT
+        # a KeyboardInterrupt) — save what we have before exiting.
         node.save()
+        saved = True
     finally:
+        if not saved:
+            try:
+                node.save()
+            except Exception:  # noqa: BLE001 — never lose the run on teardown
+                pass
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

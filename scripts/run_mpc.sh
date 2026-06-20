@@ -4,10 +4,11 @@
 # REPLACES run_autonomy.sh (do not run both).
 # Prereq: sim is up (Terminal 1) and waypoints recorded (scripts/record_path.sh).
 #
-#   OVERLAY=1       -> also run RF-DETR for the debug overlay (view_overlay.py)
-#   LANE_FUSION=1   -> use ML lane target as the lane-centering bias for MPC
+#   OVERLAY=1       -> also run the HSV+IPM BEV debug overlay
+#   LANE_FUSION=1   -> use HSV+BEV lane centering as the MPC reference bias
+#   SIM_NOISE=1     -> route MPC through noisy odometry/LiDAR topics
 #   START_LANE=right -> use the right-lane route and spawn-relative waypoints
-#   TARGET_SPEED=0.3  LOOP=true  WAYPOINTS=...npy  MPC_SIDE=left
+#   TARGET_SPEED=0.55  LOOP=true  WAYPOINTS=...npy  MPC_SIDE=left
 set -e
 cd "$(dirname "$0")/.."
 WS="$(pwd)"
@@ -82,45 +83,57 @@ while true; do
 done
 
 if truthy "${LANE_FUSION:-}"; then LF=true; else LF=false; fi
+if truthy "${SIM_NOISE:-${SENSOR_NOISE:-}}"; then
+    NOISE=true
+    ODOM_TOPIC="${ODOM_TOPIC:-/mpc/noisy_odometry}"
+    SCAN_TOPIC="${SCAN_TOPIC:-/mpc/noisy_scan}"
+else
+    NOISE=false
+    ODOM_TOPIC="${ODOM_TOPIC:-/model/qcar2/odometry}"
+    SCAN_TOPIC="${SCAN_TOPIC:-/qcar2/lidar/scan}"
+fi
 
 if truthy "${OVERLAY:-1}" || [ "${LF}" = "true" ]; then
-    ONNX_PATH="${ONNX_PATH:-${WS}/weights/car_track_v3_lane.onnx}"
-    if [ "${ONNX_PATH}" = "${WS}/weights/car_track_v3_lane.onnx" ] && [ ! -f "${ONNX_PATH}" ]; then
-        "${WS}/scripts/restore_weights.sh"
-    fi
-    if [ "${LF}" = "true" ]; then
-        echo "Starting RF-DETR lane node (debug overlay + MPC lane-fusion target)..."
-    else
-        echo "Starting RF-DETR overlay (debug view only, does not drive)..."
-    fi
-    NV_LIBS=$(find /usr/local/lib/python3.12/dist-packages/nvidia -maxdepth 3 -type d -name lib 2>/dev/null | tr '\n' ':')
-    export LD_LIBRARY_PATH="${NV_LIBS}${LD_LIBRARY_PATH}"
-    nohup ros2 run qcar2_autonomy rfdetr_onnx_lane_node --ros-args \
+    echo "Starting HSV+IPM BEV lane node (debug + MPC lane-fusion model)..."
+    nohup ros2 run qcar2_autonomy bev_lane_detector_node --ros-args \
         -p use_sim_time:=true \
         -p image_topic:=/qcar2/front_camera/image \
-        -p onnx_path:=${ONNX_PATH} \
-        -p classes_path:=${WS}/weights/car_track_v3_lane.classes.txt \
-        -p lane_class_name:=lane2 -p publish_target:=${LF} \
-        > "${LOG}/rfdetr.log" 2>&1 & disown
+        -p lane_model_topic:=${LANE_MODEL_TOPIC:-/qcar2/lane/model} \
+        -p debug_topic:=/qcar2/lane/debug_image \
+        -p use_ipm:=true \
+        > "${LOG}/bev_lane.log" 2>&1 & disown
 fi
 
 # normalize RECORD (accept 1/true/yes) to a launch bool
 if truthy "${RECORD:-}"; then REC=true; else REC=false; fi
-echo "Starting separated MPC stack (waypoints=${WP_RUN}). Diagnostics -> ${LOG}/mpc.log  (record_log=${REC}, lane_fusion=${LF}, start_lane=${START_LANE})"
+echo "Starting separated MPC stack (waypoints=${WP_RUN}). Diagnostics -> ${LOG}/mpc.log  (record_log=${REC}, lane_fusion=${LF}, lane_source=bev, noise=${NOISE}, start_lane=${START_LANE})"
 ros2 launch qcar2_autonomy mpc.launch.py \
     waypoints_path:=${WP_RUN} \
-    target_speed:=${TARGET_SPEED:-0.30} \
+    target_speed:=${TARGET_SPEED:-0.55} \
+    odom_topic:=${ODOM_TOPIC} \
+    scan_topic:=${SCAN_TOPIC} \
     prefer_side:=${MPC_SIDE:-left} \
     loop:=${LOOP:-true} \
     record_log:=${REC} \
+    sensor_noise_enabled:=${NOISE} \
+    max_straight_speed:=${MAX_STRAIGHT_SPEED:-0.80} \
+    min_curve_speed:=${MIN_CURVE_SPEED:-0.18} \
+    max_lateral_accel_mps2:=${MAX_LATERAL_ACCEL:-0.45} \
+    curvature_lookahead_m:=${CURVATURE_LOOKAHEAD:-1.20} \
     lane_fusion_enabled:=${LF} \
     lane_model_topic:=${LANE_MODEL_TOPIC:-/qcar2/lane/model} \
     lane_target_topic:=${LANE_TARGET_TOPIC:-/planning/validated_target_x} \
-    lane_fusion_max_correction_m:=${LANE_FUSION_MAX_CORRECTION:-0.30} \
+    lane_fusion_max_correction_m:=${LANE_FUSION_MAX_CORRECTION:-0.06} \
+    lane_fusion_max_step_m:=${LANE_FUSION_MAX_STEP:-0.006} \
     lane_px_to_m:=${LANE_PX_TO_M:-0.0015} \
-    lane_fusion_gain:=${LANE_FUSION_GAIN:-1.15} \
-    lane_fusion_alpha:=${LANE_FUSION_ALPHA:-0.45} \
+    lane_fusion_gain:=${LANE_FUSION_GAIN:-0.35} \
+    lane_fusion_alpha:=${LANE_FUSION_ALPHA:-0.25} \
+    lane_fusion_min_confidence:=${LANE_FUSION_MIN_CONFIDENCE:-0.30} \
+    lane_fusion_hold_low_confidence:=${LANE_FUSION_HOLD_LOW_CONFIDENCE:-true} \
     lane_fusion_disable_heading_delta_rad:=${LANE_FUSION_HEADING_GATE:-3.20} \
+    command_smoothing_enabled:=${COMMAND_SMOOTHING:-true} \
+    omega_smoothing_alpha:=${OMEGA_SMOOTHING_ALPHA:-0.80} \
+    max_omega_rate_rps2:=${MAX_OMEGA_RATE:-5.0} \
     2>&1 | tee "${LOG}/mpc.log"
 # RECORD=1 logs the run to ~/rosbot_ws/mpc_run_log.npz; then:
 #   python3 scripts/plot_mpc_run.py   -> /tmp/mpc_run_plot.png
