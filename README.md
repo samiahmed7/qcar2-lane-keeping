@@ -13,7 +13,7 @@ The design is intentionally simple:
   correction, and publishes `/mpc/reference_path`.
 - MPC tracks that reference and publishes `/model/qcar2/cmd_vel`.
 
-No deep-learning weights are required for the BEV-MPC run path.
+No trained model files are required for the BEV-MPC run path.
 
 ## Architecture
 
@@ -49,8 +49,8 @@ colcon build --symlink-install --packages-up-to qcar2_autonomy qcar2_bringup
 source install/setup.bash
 ```
 
-## Quick start
-.
+One-time MPC solver dependencies:
+
 ```bash
 python3 -m pip install --user --break-system-packages cvxpy clarabel
 ```
@@ -216,7 +216,7 @@ Important environment variables for `scripts/run_mpc.sh`:
 - Use `LOOP=false` for the university branch route.
 - The headless sim can run much slower than wall time on this machine; use a long
   `DUR` for full-route validation.
-- The BEV detector is classical HSV/IPM and does not require ML weights.
+- The BEV detector is classical HSV/IPM and does not require trained model files.
 
 ## Repository
 

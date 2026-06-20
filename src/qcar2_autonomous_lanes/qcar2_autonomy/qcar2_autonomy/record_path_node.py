@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Record the driven centreline as MPC waypoints.
 
-Run the normal RF-DETR lane-keeper so the car drives the track, run this
-alongside, and it samples /model/qcar2/odometry every `spacing` metres into a
-waypoint file. Stops on loop-closure (returns near the start after leaving it)
-or Ctrl-C, then saves an .npy of shape (2, N) = [x; y].
+Drive the car manually or with an autonomy stack while this node samples
+/model/qcar2/odometry every `spacing` metres into a waypoint file. Stops on
+loop-closure (returns near the start after leaving it) or Ctrl-C, then saves an
+.npy of shape (2, N) = [x; y].
 """
 import numpy as np
 import rclpy

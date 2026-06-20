@@ -23,8 +23,8 @@ RIGHT = 'RIGHT'
 STOP = 'STOP'
 
 # Calibrated IPM from the hammad_dev branch (qcar2_line_tracker/config/ipm.yaml),
-# converted to ratios for the 640x480 camera. The previous (ML_steering) polygon
-# sampled rows ~250-315 (foreground, below the markings); this calibrated source
+# converted to ratios for the 640x480 camera. A previous narrow foreground polygon
+# sampled rows ~250-315 (below the markings); this calibrated source
 # spans rows ~141-242 -- right where the lane lines actually are. Ground patch
 # ~0.8 m x 1.5 m (m_per_px_x=0.00208, m_per_px_y=0.003125).
 IPM_SRC_RATIOS = [

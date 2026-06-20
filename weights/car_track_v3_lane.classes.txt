@@ -1,3 +1,0 @@
-background_class83422
-lane2
-traffic_light

@@ -2,7 +2,7 @@
 """Small, movable live viewer for a ROS Image topic (lighter than rqt).
 
 Usage:
-    python3 scripts/view_overlay.py                       # /rfdetr_lane/debug_image
+    python3 scripts/view_overlay.py                       # /qcar2/lane/debug_image
     python3 scripts/view_overlay.py /qcar2/front_camera/image
 Press 'q' in the window to quit.
 """
@@ -13,7 +13,7 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
 
-TOPIC = sys.argv[1] if len(sys.argv) > 1 else '/rfdetr_lane/debug_image'
+TOPIC = sys.argv[1] if len(sys.argv) > 1 else '/qcar2/lane/debug_image'
 WIN = 'QCar2 view'
 
 

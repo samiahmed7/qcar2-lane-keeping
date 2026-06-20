@@ -28,12 +28,7 @@ Thumbs.db
 .venvs/
 .claude/
 
-# Large/generated ML artifacts. The RF-DETR ONNX runtime model is restored from
-# committed weights/*.onnx.part-* files by scripts/restore_weights.sh.
-weights/*.onnx
-weights/roboflow_cache/
-src/qcar2_autonomous_lanes/qcar2_autonomy/weights/*.pt
-src/qcar2_autonomous_lanes/qcar2_autonomy/weights/*.pth
+# Large/generated local artifacts
 archive/
 external/
 *.mp4

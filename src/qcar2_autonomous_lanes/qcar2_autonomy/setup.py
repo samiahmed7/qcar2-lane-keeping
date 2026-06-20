@@ -15,7 +15,6 @@ setup(
         ('share/' + package_name, ['package.xml']),
         (os.path.join('share', package_name, 'launch'), glob('launch/*.py')),
         (os.path.join('share', package_name, 'config'), glob('config/*.yaml')),
-        (os.path.join('share', package_name, 'weights'), glob('weights/*')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,8 +24,6 @@ setup(
     license='MIT',
     entry_points={
         'console_scripts': [
-            # ML perception (debug overlay / path recording aid)
-            'rfdetr_onnx_lane_node = qcar2_autonomy.rfdetr_onnx_lane_node:main',
             # BEV lane detector (classical white-line, right-lane) -- segmentation debug
             'bev_lane_detector_node = qcar2_autonomy.bev_lane_detector_node:main',
             # Path recording

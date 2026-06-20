@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Record the driven centreline as MPC waypoints.
-# Prereq: sim is up (Terminal 1) AND the car is driving via the RF-DETR
-# lane-keeper (./scripts/run_autonomy.sh). This just logs odometry to waypoints.
+# Prereq: sim is up and the car is being driven manually or by an autonomy stack.
+# This just logs odometry to waypoints.
 # Drive one full lap, then Ctrl-C (or it auto-saves on loop closure).
 set -e
 cd "$(dirname "$0")/.."
