@@ -221,16 +221,22 @@ class ReliableLaneDetectorNode(Node):
             lane.right_x = float(edge)
         elif dash is not None:
             edge_est = dash + self.lane_width_ema
-            target = 0.5 * (dash + edge_est)
-            lane.middle_visible = True
-            lane.middle_x = float(dash)
-            lane.right_x = float(edge_est)
+            # Reject if estimated edge is off-screen or left of centre — the
+            # single peak is probably the right edge mislabelled as dash,
+            # which would project the target outside the road.
+            if self.center_px < edge_est < self.W * 0.95:
+                target = 0.5 * (dash + edge_est)
+                lane.middle_visible = True
+                lane.middle_x = float(dash)
+                lane.right_x = float(edge_est)
         elif edge is not None:
             dash_est = edge - self.lane_width_ema
-            target = 0.5 * (dash_est + edge)
-            lane.right_visible = True
-            lane.middle_x = float(dash_est)
-            lane.right_x = float(edge)
+            # Reject if estimated dash is off-screen or right of centre.
+            if self.W * 0.05 < dash_est < self.center_px:
+                target = 0.5 * (dash_est + edge)
+                lane.right_visible = True
+                lane.middle_x = float(dash_est)
+                lane.right_x = float(edge)
 
         if target is None:
             self.target_ema = None
