@@ -75,8 +75,13 @@ mpc_reference_planner_node:
     lane_px_to_m: 0.0015
     lane_fusion_gain: 1.20
     lane_fusion_alpha: 0.50
-    lane_fusion_max_correction_m: 0.30
-    lane_fusion_max_step_m: 0.030
+    # Vision is the lane-keeping AUTHORITY: it may pull the car up to 0.70 m off
+    # the waypoint reference, so a confident BEV detection keeps the car in the
+    # lane even when the recorded waypoints are off. Bounded so a single bad
+    # frame can't throw the car across the map (confidence + error_jump gates
+    # plus this cap contain it).
+    lane_fusion_max_correction_m: 0.70
+    lane_fusion_max_step_m: 0.040
     lane_fusion_timeout_sec: 0.8
     lane_fusion_min_confidence: 0.18
     lane_fusion_hold_low_confidence: true

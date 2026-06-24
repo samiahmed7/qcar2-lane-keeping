@@ -123,12 +123,12 @@ ros2 launch qcar2_autonomy mpc.launch.py \
     lane_fusion_enabled:=${LF} \
     lane_model_topic:=${LANE_MODEL_TOPIC:-/qcar2/lane/model} \
     lane_target_topic:=${LANE_TARGET_TOPIC:-/planning/validated_target_x} \
-    lane_fusion_max_correction_m:=${LANE_FUSION_MAX_CORRECTION:-0.06} \
-    lane_fusion_max_step_m:=${LANE_FUSION_MAX_STEP:-0.006} \
+    lane_fusion_max_correction_m:=${LANE_FUSION_MAX_CORRECTION:-0.70} \
+    lane_fusion_max_step_m:=${LANE_FUSION_MAX_STEP:-0.040} \
     lane_px_to_m:=${LANE_PX_TO_M:-0.0015} \
-    lane_fusion_gain:=${LANE_FUSION_GAIN:-0.35} \
-    lane_fusion_alpha:=${LANE_FUSION_ALPHA:-0.25} \
-    lane_fusion_min_confidence:=${LANE_FUSION_MIN_CONFIDENCE:-0.30} \
+    lane_fusion_gain:=${LANE_FUSION_GAIN:-1.20} \
+    lane_fusion_alpha:=${LANE_FUSION_ALPHA:-0.50} \
+    lane_fusion_min_confidence:=${LANE_FUSION_MIN_CONFIDENCE:-0.18} \
     lane_fusion_hold_low_confidence:=${LANE_FUSION_HOLD_LOW_CONFIDENCE:-true} \
     lane_fusion_disable_heading_delta_rad:=${LANE_FUSION_HEADING_GATE:-3.20} \
     command_smoothing_enabled:=${COMMAND_SMOOTHING:-true} \
