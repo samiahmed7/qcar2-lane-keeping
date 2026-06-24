@@ -13,6 +13,7 @@ import numpy as np
 from qcar2_autonomy.bev_lane_detector_node import BeVLaneDetectorNode
 from qcar2_autonomy.mpc_reference_planner_node import (
     LANE_KEEP_RIGHT,
+    PASS_OBSTACLE,
     MpcReferencePlannerNode,
 )
 from qcar2_autonomy.mpc_drive_node import MpcDriveNode
@@ -55,6 +56,14 @@ class _FakeTime:
 class _FakeClock:
     def now(self):
         return _FakeTime(10.0)
+
+
+class _FakeLogger:
+    def info(self, *args, **kwargs):
+        pass
+
+    def warn(self, *args, **kwargs):
+        pass
 
 
 class _LaneFusionHarness:
@@ -160,6 +169,63 @@ class _SpeedProfileHarness:
 
     def _uncertainty_speed_factor(self):
         return MpcReferencePlannerNode._uncertainty_speed_factor(self)
+
+
+class _FakeOvertakePlanner:
+    def __init__(self):
+        self.s = np.array([0.0, 0.6, 1.2, 1.8], dtype=float)
+        self.total_len = 4.0
+        self.hold_pad = 0.25
+        self.ramp_out = 1.0
+
+    def nearest_index(self, x, y):
+        return 1
+
+    def project_obstacle(self, x, y):
+        return float(x), float(y), 0
+
+
+class _ChainOvertakeHarness:
+    def __init__(self):
+        self.path_index = 1
+        self.state = np.zeros(4, dtype=float)
+        self.loop = False
+        self.planner = _FakeOvertakePlanner()
+        self.overtake = {
+            "s_obs": 0.0,
+            "e_obs": 0.0,
+            "radius": 0.10,
+            "side": 1.0,
+        }
+        self.mode = LANE_KEEP_RIGHT
+        self.obstacle = {
+            "front_distance": 1.2,
+            "x": 1.4,
+            "y": 0.0,
+            "radius": 0.12,
+            "left_clear": math.inf,
+            "right_clear": math.inf,
+        }
+        self.obstacle_time = _FakeTime(9.9)
+        self.obstacle_timeout_sec = 0.8
+        self.return_obstacle_hold_distance = 2.0
+        self.return_obstacle_min_arc_delta = -0.25
+        self.current_lane_half_width = 0.38
+
+    def get_clock(self):
+        return _FakeClock()
+
+    def get_logger(self):
+        return _FakeLogger()
+
+    def _signed_arc_delta(self, s_value, s_reference):
+        return MpcReferencePlannerNode._signed_arc_delta(self, s_value, s_reference)
+
+    def _obstacle_is_fresh(self):
+        return MpcReferencePlannerNode._obstacle_is_fresh(self)
+
+    def _extend_overtake_for_chained_obstacle(self):
+        return MpcReferencePlannerNode._extend_overtake_for_chained_obstacle(self)
 
 
 class _FakeLaneModel:
@@ -362,6 +428,15 @@ class MpcPlannerTest(unittest.TestCase):
         factor = MpcReferencePlannerNode._uncertainty_speed_factor(harness)
 
         self.assertAlmostEqual(factor, 0.60)
+
+    def test_return_right_holds_left_for_chained_obstacle(self):
+        harness = _ChainOvertakeHarness()
+
+        MpcReferencePlannerNode._update_active_overtake(harness, _FakeTime(10.0))
+
+        self.assertEqual(harness.mode, PASS_OBSTACLE)
+        self.assertAlmostEqual(harness.overtake["s_obs"], 1.4)
+        self.assertAlmostEqual(harness.overtake["radius"], 0.12)
 
     def test_adaptive_bias_learns_against_cross_track_drift(self):
         harness = _AdaptiveBiasHarness()

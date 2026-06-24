@@ -66,6 +66,8 @@ class MpcReferencePlannerNode(Node):
         self.declare_parameter("prefer_side", "left")  # left | right | auto
         self.declare_parameter("current_lane_half_width_m", 0.38)
         self.declare_parameter("min_side_clearance_m", 0.6)
+        self.declare_parameter("return_obstacle_hold_distance_m", 2.0)
+        self.declare_parameter("return_obstacle_min_arc_delta_m", -0.25)
         # Drivable corridor: how far the car CENTRE may ride off the centreline
         # during an overtake. If both sides need more than this, the road is
         # blocked and the car stops instead of driving off the track.
@@ -98,6 +100,10 @@ class MpcReferencePlannerNode(Node):
         self.declare_parameter("lane_fusion_disable_heading_delta_rad", 3.20)
         self.declare_parameter("lane_fusion_heading_full_gain_rad", 0.60)
         self.declare_parameter("lane_fusion_heading_zero_gain_rad", 2.50)
+        self.declare_parameter("lane_fusion_turn_min_gain", 0.0)
+        self.declare_parameter("lane_fusion_turn_min_confidence", 0.55)
+        self.declare_parameter("lane_fusion_turn_max_step_m", 0.0)
+        self.declare_parameter("lane_fusion_turn_bias_m", 0.0)
         self.declare_parameter("lane_fusion_confidence_scaled", True)
         self.declare_parameter("lane_fusion_min_confidence_gain", 0.25)
         self.declare_parameter("lane_fusion_max_error_px", 220.0)
@@ -148,6 +154,12 @@ class MpcReferencePlannerNode(Node):
             self.get_parameter("current_lane_half_width_m").value
         )
         self.min_side_clearance = float(self.get_parameter("min_side_clearance_m").value)
+        self.return_obstacle_hold_distance = float(
+            self.get_parameter("return_obstacle_hold_distance_m").value
+        )
+        self.return_obstacle_min_arc_delta = float(
+            self.get_parameter("return_obstacle_min_arc_delta_m").value
+        )
         self.max_lateral_offset = float(self.get_parameter("max_lateral_offset_m").value)
         self.blocked_resume_distance = float(
             self.get_parameter("blocked_resume_distance_m").value
@@ -190,6 +202,19 @@ class MpcReferencePlannerNode(Node):
         )
         self.lane_fusion_heading_zero_gain = float(
             self.get_parameter("lane_fusion_heading_zero_gain_rad").value
+        )
+        self.lane_fusion_turn_min_gain = min(
+            1.0,
+            max(0.0, float(self.get_parameter("lane_fusion_turn_min_gain").value)),
+        )
+        self.lane_fusion_turn_min_confidence = float(
+            self.get_parameter("lane_fusion_turn_min_confidence").value
+        )
+        self.lane_fusion_turn_max_step = abs(
+            float(self.get_parameter("lane_fusion_turn_max_step_m").value)
+        )
+        self.lane_fusion_turn_bias = float(
+            self.get_parameter("lane_fusion_turn_bias_m").value
         )
         self.lane_fusion_confidence_scaled = bool(
             self.get_parameter("lane_fusion_confidence_scaled").value
@@ -279,6 +304,7 @@ class MpcReferencePlannerNode(Node):
         self.lane_target_time = None
         self.lane_fusion_correction = 0.0
         self.lane_fusion_status = "disabled"
+        self.lane_fusion_turn_active = False
         self.smoothed_speed = None
         self.state_uncertainty_m = 0.0
         self.last_accepted_lane_error_px = None
@@ -420,6 +446,7 @@ class MpcReferencePlannerNode(Node):
 
     def _apply_lane_fusion(self, ref):
         camera_correction = 0.0
+        self.lane_fusion_turn_active = False
         if not self.lane_fusion_enabled:
             self.lane_fusion_status = "disabled"
         elif self.mode == LANE_KEEP_RIGHT:
@@ -439,11 +466,14 @@ class MpcReferencePlannerNode(Node):
             (1.0 - alpha) * self.lane_fusion_correction
             + alpha * target_correction
         )
-        if self.lane_fusion_max_step > 0.0:
+        max_step = self.lane_fusion_max_step
+        if self.lane_fusion_turn_active and self.lane_fusion_turn_max_step > 0.0:
+            max_step = max(max_step, self.lane_fusion_turn_max_step)
+        if max_step > 0.0:
             delta = float(np.clip(
                 blended - self.lane_fusion_correction,
-                -self.lane_fusion_max_step,
-                self.lane_fusion_max_step,
+                -max_step,
+                max_step,
             ))
             self.lane_fusion_correction += delta
         else:
@@ -471,31 +501,39 @@ class MpcReferencePlannerNode(Node):
             self.lane_fusion_status = f"heading_gate:{heading_change:.2f}rad"
             return 0.0
         route_gain = self._lane_fusion_route_gain(heading_change)
-        if route_gain <= 0.0:
-            self.lane_fusion_status = f"route_curve_gate:{heading_change:.2f}rad"
-            return 0.0
         if self._lane_fusion_obstacle_gate_active():
             self.lane_fusion_status = "obstacle_gate"
             return 0.0
+        turn_bias = MpcReferencePlannerNode._lane_fusion_turn_bias(
+            self, heading_change, route_gain
+        )
+        if abs(turn_bias) > 1e-4:
+            self.lane_fusion_turn_active = True
 
         self.lane_fusion_status = "no_lane_target"
         now = self.get_clock().now()
         error_px = None
         px_to_m = self.lane_px_to_m
         source = None
+        source_is_model = False
+        right_edge_visible = False
+        model_confidence = 0.0
         confidence_gain = 1.0
 
         if self.lane_model is not None and self.lane_model_time is not None:
             age = (now - self.lane_model_time).nanoseconds * 1e-9
             lane = self.lane_model
+            model_confidence = float(lane.confidence)
+            right_edge_visible = bool(getattr(lane, "right_visible", False))
             if (
                 age <= self.lane_fusion_timeout_sec
-                and lane.confidence >= self.lane_fusion_min_confidence
+                and model_confidence >= self.lane_fusion_min_confidence
                 and math.isfinite(lane.error_px)
             ):
                 error_px = float(lane.error_px)
-                source = f"model:conf={lane.confidence:.2f},age={age:.2f}s"
-                confidence_gain = self._lane_confidence_gain(float(lane.confidence))
+                source = f"model:conf={model_confidence:.2f},age={age:.2f}s"
+                source_is_model = True
+                confidence_gain = self._lane_confidence_gain(model_confidence)
                 if (
                     math.isfinite(lane.estimated_lane_width_px)
                     and lane.estimated_lane_width_px > 1.0
@@ -526,9 +564,34 @@ class MpcReferencePlannerNode(Node):
                 self.lane_fusion_status = f"stale_ml_target:{age:.2f}s"
 
         if error_px is None:
+            if abs(turn_bias) > 1e-4:
+                self.lane_fusion_status = (
+                    f"turn_bias_no_lane:{heading_change:.2f}rad"
+                )
+                return turn_bias
             if self.lane_fusion_status in ("disabled", ""):
                 self.lane_fusion_status = "no_lane_target"
             return 0.0
+        if route_gain <= 0.0:
+            if (
+                source_is_model
+                and right_edge_visible
+                and model_confidence >= self.lane_fusion_turn_min_confidence
+                and self.lane_fusion_turn_min_gain > 0.0
+            ):
+                route_gain = self.lane_fusion_turn_min_gain
+                self.lane_fusion_turn_active = True
+            else:
+                self.lane_fusion_status = f"route_curve_gate:{heading_change:.2f}rad"
+                return turn_bias
+        elif (
+            source_is_model
+            and right_edge_visible
+            and model_confidence >= self.lane_fusion_turn_min_confidence
+            and heading_change > self.lane_fusion_heading_full_gain
+        ):
+            route_gain = max(route_gain, self.lane_fusion_turn_min_gain)
+            self.lane_fusion_turn_active = True
         if abs(error_px) > self.lane_fusion_max_error_px:
             self.lane_fusion_status = f"error_gate:{error_px:+.1f}px"
             return 0.0
@@ -564,6 +627,7 @@ class MpcReferencePlannerNode(Node):
             * route_gain
             * confidence_gain
             * uncertainty_gain
+            + turn_bias
         )
         correction = float(np.clip(
             correction,
@@ -574,9 +638,25 @@ class MpcReferencePlannerNode(Node):
         self.lane_fusion_status = (
             f"active:{source},error={error_px:+.1f}px,px_to_m={px_to_m:.5f},"
             f"route={route_gain:.2f},conf_gain={confidence_gain:.2f},"
-            f"unc={uncertainty_gain:.2f}"
+            f"unc={uncertainty_gain:.2f},turn_bias={turn_bias:+.3f}"
         )
         return correction
+
+    def _lane_fusion_turn_bias(self, heading_change, route_gain):
+        """Right-lane route bias used only on curves.
+
+        Negative correction shifts the reference to the vehicle's right. This
+        helps when a recorded route runs near the dashed middle lane in a turn
+        but there is clear right-lane space available.
+        """
+        turn_bias = float(getattr(self, "lane_fusion_turn_bias", 0.0))
+        if abs(turn_bias) < 1e-6:
+            return 0.0
+        full_gain = float(getattr(self, "lane_fusion_heading_full_gain", 0.0))
+        if heading_change <= full_gain:
+            return 0.0
+        fade = float(np.clip(1.0 - route_gain, 0.0, 1.0))
+        return turn_bias * fade
 
     def _lane_fusion_route_gain(self, heading_change):
         full = max(0.0, self.lane_fusion_heading_full_gain)
@@ -753,6 +833,10 @@ class MpcReferencePlannerNode(Node):
         half_hold = radius + self.planner.hold_pad
         ds = self._signed_arc_delta(s_now, s_obs)
 
+        if ds > half_hold and self._extend_overtake_for_chained_obstacle():
+            self.mode = PASS_OBSTACLE
+            return
+
         if ds > half_hold + self.planner.ramp_out + 0.2:
             self.overtake = None
             self.mode = LANE_KEEP_RIGHT
@@ -770,6 +854,40 @@ class MpcReferencePlannerNode(Node):
             self.mode = PASS_OBSTACLE
         else:
             self.mode = RETURN_RIGHT
+
+    def _extend_overtake_for_chained_obstacle(self):
+        """Keep the pass lane if a new obstacle appears during return-right."""
+        if self.overtake is None:
+            return False
+        if self.return_obstacle_hold_distance <= 0.0:
+            return False
+        if not self._obstacle_is_fresh() or self.obstacle is None:
+            return False
+
+        obs = self.obstacle
+        if obs["front_distance"] > self.return_obstacle_hold_distance:
+            return False
+
+        s_new, e_new, _ = self.planner.project_obstacle(obs["x"], obs["y"])
+        if abs(e_new) > self.current_lane_half_width:
+            return False
+
+        ds_from_active = self._signed_arc_delta(s_new, self.overtake["s_obs"])
+        if ds_from_active < self.return_obstacle_min_arc_delta:
+            return False
+
+        radius = max(float(obs["radius"]), 0.05)
+        if ds_from_active > 0.0:
+            self.overtake["s_obs"] = s_new
+            self.overtake["e_obs"] = e_new
+            self.overtake["radius"] = max(self.overtake["radius"], radius)
+
+        self.get_logger().warn(
+            "MPC planner: second obstacle detected during return-right; "
+            "holding pass lane before merging back.",
+            throttle_duration_sec=1.5,
+        )
+        return True
 
     def _select_side(self, e_obs, radius, left_clear, right_clear):
         """Pick an overtake side that has real room, or None if blocked.

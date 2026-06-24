@@ -40,6 +40,8 @@ mpc_reference_planner_node:
     prefer_side: left
     current_lane_half_width_m: 0.38
     min_side_clearance_m: 0.6
+    return_obstacle_hold_distance_m: 2.0
+    return_obstacle_min_arc_delta_m: -0.25
     max_lateral_offset_m: 0.65
     blocked_resume_distance_m: 3.0
     blocked_min_stop_sec: 0.6
@@ -60,7 +62,7 @@ mpc_reference_planner_node:
     lane_px_to_m: 0.0015
     lane_fusion_gain: 0.70
     lane_fusion_alpha: 0.08
-    lane_fusion_max_correction_m: 0.45
+    lane_fusion_max_correction_m: 0.75
     lane_fusion_max_step_m: 0.012
     lane_fusion_deadband_px: 8.0
     lane_fusion_timeout_sec: 0.8
@@ -69,6 +71,10 @@ mpc_reference_planner_node:
     lane_fusion_disable_heading_delta_rad: 3.20
     lane_fusion_heading_full_gain_rad: 0.40
     lane_fusion_heading_zero_gain_rad: 1.20
+    lane_fusion_turn_min_gain: 0.85
+    lane_fusion_turn_min_confidence: 0.45
+    lane_fusion_turn_max_step_m: 0.030
+    lane_fusion_turn_bias_m: -0.25
     lane_fusion_confidence_scaled: true
     lane_fusion_min_confidence_gain: 0.25
     lane_fusion_max_error_px: 380.0       # [TUNED] Opened gate so it doesn't give up on edges
@@ -126,6 +132,17 @@ reliable_lane_detector_node:
   ros__parameters:
     # [TUNED] Fixed BEV near-sightedness and double-filtering
     eval_y_frac: 0.55         # Look further down the road, not at the bumper
+    component_filter_enabled: false
+    min_component_area_px: 60
+    max_component_area_px: 50000
+    min_component_height_px: 8
+    max_component_width_px: 260
+    min_component_aspect: 0.45
+    min_filtered_pixels: 250
+    min_filtered_pixel_ratio: 0.08
+    min_line_span_frac: 0.18
+    max_line_rms_px: 42.0
+    max_target_jump_px: 80.0
     target_ema_alpha: 0.25
     track_x_alpha: 0.30
     width_ema_alpha: 0.05

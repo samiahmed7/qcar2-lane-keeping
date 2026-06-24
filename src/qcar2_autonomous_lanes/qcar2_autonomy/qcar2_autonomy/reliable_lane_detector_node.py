@@ -60,16 +60,29 @@ class ReliableLaneDetectorNode(Node):
         self.declare_parameter("hsv_lo", [0, 0, 180])
         self.declare_parameter("hsv_hi", [180, 80, 255])
         self.declare_parameter("morph_kernel", 5)
+        # BEV mask cleanup. This rejects small flecks plus horizontal/compact
+        # road markings before they can seed the lane identity tracker.
+        self.declare_parameter("component_filter_enabled", False)
+        self.declare_parameter("min_component_area_px", 60)
+        self.declare_parameter("max_component_area_px", 50000)
+        self.declare_parameter("min_component_height_px", 18)
+        self.declare_parameter("max_component_width_px", 170)
+        self.declare_parameter("min_component_aspect", 1.20)
+        self.declare_parameter("min_filtered_pixels", 250)
+        self.declare_parameter("min_filtered_pixel_ratio", 0.08)
         # sliding window
         self.declare_parameter("n_windows",          10)
         self.declare_parameter("window_half_w_px",   80)
         self.declare_parameter("min_pix_per_window", 30)
         self.declare_parameter("hist_band_frac",     0.50)
         self.declare_parameter("eval_y_frac",        0.80)
+        self.declare_parameter("min_line_span_frac", 0.18)
+        self.declare_parameter("max_line_rms_px", 42.0)
         # lane geometry
         self.declare_parameter("nominal_lane_width_px", 394.0)
         self.declare_parameter("min_lane_width_px",     220.0)
         self.declare_parameter("max_lane_width_px",     540.0)
+        self.declare_parameter("max_target_jump_px", 80.0)
         # tracking / identity
         self.declare_parameter("assoc_gate_px",       90.0)   # max jump to keep identity
         self.declare_parameter("max_missing_frames",  8)      # frames before a track is lost
@@ -87,14 +100,27 @@ class ReliableLaneDetectorNode(Node):
         self.hsv_hi     = np.array(self.get_parameter("hsv_hi").value, dtype=np.uint8)
         k = max(1, int(self.get_parameter("morph_kernel").value))
         self.morph_k    = np.ones((k, k), np.uint8)
+        self.comp_filter = bool(self.get_parameter("component_filter_enabled").value)
+        self.min_comp_area = int(self.get_parameter("min_component_area_px").value)
+        self.max_comp_area = int(self.get_parameter("max_component_area_px").value)
+        self.min_comp_h = int(self.get_parameter("min_component_height_px").value)
+        self.max_comp_w = int(self.get_parameter("max_component_width_px").value)
+        self.min_comp_aspect = float(self.get_parameter("min_component_aspect").value)
+        self.min_filtered_pixels = int(self.get_parameter("min_filtered_pixels").value)
+        self.min_filtered_ratio = float(
+            self.get_parameter("min_filtered_pixel_ratio").value
+        )
         self.n_windows  = int(self.get_parameter("n_windows").value)
         self.win_hw     = int(self.get_parameter("window_half_w_px").value)
         self.min_pix    = int(self.get_parameter("min_pix_per_window").value)
         self.band_frac  = float(self.get_parameter("hist_band_frac").value)
         self.eval_y_fr  = float(self.get_parameter("eval_y_frac").value)
+        self.min_line_span_frac = float(self.get_parameter("min_line_span_frac").value)
+        self.max_line_rms_px = float(self.get_parameter("max_line_rms_px").value)
         self.nom_width  = float(self.get_parameter("nominal_lane_width_px").value)
         self.min_width  = float(self.get_parameter("min_lane_width_px").value)
         self.max_width  = float(self.get_parameter("max_lane_width_px").value)
+        self.max_target_jump = float(self.get_parameter("max_target_jump_px").value)
         self.assoc_gate = float(self.get_parameter("assoc_gate_px").value)
         self.max_missing= int(self.get_parameter("max_missing_frames").value)
         self.track_alpha= float(self.get_parameter("track_x_alpha").value)
@@ -135,6 +161,22 @@ class ReliableLaneDetectorNode(Node):
         mask = cv2.inRange(cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV), self.hsv_lo, self.hsv_hi)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, self.morph_k)
         bev = cv2.warpPerspective(mask, self.M, (self.W, self.H), flags=cv2.INTER_LINEAR)
+        if self.comp_filter:
+            filtered = self._filter_components(bev)
+            raw_px = int(np.count_nonzero(bev))
+            kept_px = int(np.count_nonzero(filtered))
+            min_px = max(
+                self.min_filtered_pixels,
+                int(self.min_filtered_ratio * max(1, raw_px)),
+            )
+            if raw_px > 0 and kept_px < min_px:
+                self.get_logger().warn(
+                    f"BEV component filter rejected too much "
+                    f"({kept_px}/{raw_px}px); using raw mask",
+                    throttle_duration_sec=2.0,
+                )
+            else:
+                bev = filtered
 
         self._update_tracks(bev)
         lane = self._build_model(msg.header)
@@ -150,6 +192,24 @@ class ReliableLaneDetectorNode(Node):
         )
         if self.debug_en:
             self._publish_debug(bgr, bev, lane)
+
+    # ------------------------------------------------------------------ #
+    def _filter_components(self, bev):
+        n, labels, stats, _ = cv2.connectedComponentsWithStats(
+            (bev > 0).astype(np.uint8), connectivity=8
+        )
+        out = np.zeros_like(bev)
+        for cid in range(1, n):
+            x, y, w, h, area = stats[cid]
+            if area < self.min_comp_area or area > self.max_comp_area:
+                continue
+            if h < self.min_comp_h or w > self.max_comp_w:
+                continue
+            aspect = h / float(max(1, w))
+            if aspect < self.min_comp_aspect:
+                continue
+            out[labels == cid] = 255
+        return out
 
     # ------------------------------------------------------------------ #
     def _histogram_peaks(self, bev):
@@ -191,9 +251,23 @@ class ReliableLaneDetectorNode(Node):
             poly = np.polyfit(ys, xs, 2)
         except Exception:
             return None, None, len(ys), None
+        if not self._line_fit_ok(ys, xs, poly):
+            return None, None, len(ys), None
         eval_x = float(np.polyval(poly, self.eval_y))
         pts = np.column_stack([ys, xs])
         return eval_x, poly, len(ys), pts
+
+    def _line_fit_ok(self, ys, xs, poly):
+        ys = np.asarray(ys, dtype=np.float32)
+        xs = np.asarray(xs, dtype=np.float32)
+        if ys.size < 3:
+            return False
+        y_span = float(ys.max() - ys.min())
+        if y_span < max(6.0, self.min_line_span_frac * self.H):
+            return False
+        pred = np.polyval(poly, ys)
+        rms = float(np.sqrt(np.mean((xs - pred) ** 2)))
+        return rms <= self.max_line_rms_px
 
     def _has_dark_gap(self, bev, x1, x2, min_dark_frac=0.40):
         lo, hi = int(min(x1, x2)), int(max(x1, x2))
@@ -218,7 +292,7 @@ class ReliableLaneDetectorNode(Node):
             right_seed = max(right_cands) if right_cands else int(self.center_px + 0.25 * self.W)
         rx, rpoly, rn, _ = self._track_line(bev, right_seed)
         # plausible-half guard
-        if rx is not None and not (self.center_px - 0.20 * self.W < rx < self.W * 0.98):
+        if rx is not None and not (0.10 * self.W < rx < self.W * 0.99):
             rx = None
         self._associate("right", rx, rpoly, rn)
 
@@ -320,6 +394,18 @@ class ReliableLaneDetectorNode(Node):
             lane.error_px        = math.nan
             lane.estimated_lane_width_px = float(self.lane_width_ema)
             lane.confidence = 0.0
+            return lane
+
+        if (
+            self.target_ema is not None
+            and self.max_target_jump > 0.0
+            and abs(target - self.target_ema) > self.max_target_jump
+        ):
+            lane.target_center_x = float(self.target_ema)
+            lane.right_lane_center_x = float(self.target_ema)
+            lane.error_px = float(self.target_ema - self.center_px)
+            lane.estimated_lane_width_px = float(self.lane_width_ema)
+            lane.confidence = float(min(confidence, 0.10))
             return lane
 
         self.target_ema = (

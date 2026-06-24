@@ -10,10 +10,13 @@ The design is intentionally simple:
 - Camera HSV/BEV detects white lane markings and publishes `/qcar2/lane/model`.
 - LiDAR detects obstacles and publishes `/mpc/obstacle`.
 - The planner builds a route reference, applies a small BEV lane-centering
-  correction, and publishes `/mpc/reference_path`.
+  correction, handles obstacle pass/return behavior, and publishes
+  `/mpc/reference_path`.
 - MPC tracks that reference and publishes `/model/qcar2/cmd_vel`.
 
 No trained model files are required for the BEV-MPC run path.
+Sensor-noise injection exists, but it is off unless `SIM_NOISE=1` or
+`SENSOR_NOISE=1` is set.
 
 ## Architecture
 
@@ -39,6 +42,20 @@ reliable_lane_detector_node  -- /qcar2/lane/model
                                     v
                          /model/qcar2/cmd_vel
 ```
+
+Active nodes in the normal no-noise run:
+
+- `reliable_lane_detector_node`: HSV mask + BEV/IPM lane model and debug image.
+- `mpc_lidar_obstacle_node`: LiDAR front obstacle, left/right clearance.
+- `mpc_reference_planner_node`: waypoint route reference, BEV lane fusion,
+  static-obstacle pass/return state machine.
+- `mpc_drive_node`: MPC controller that tracks `/mpc/reference_path`.
+- `mpc_logger_node`: optional, only when `RECORD=1`.
+
+Optional node:
+
+- `mpc_sensor_noise_node`: only when `SIM_NOISE=1` or `SENSOR_NOISE=1`; republishes
+  noisy odometry/LiDAR for sim-to-real robustness tests.
 
 ## Build
 
@@ -76,9 +93,14 @@ ros2 launch qcar2_bringup sim_bringup.launch.py \
 
 ```bash
 cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
 WAYPOINTS=~/rosbot_ws/my_route_clean.npy START_LANE=center \
-  LANE_FUSION=1 LOOP=false TARGET_SPEED=0.40 ./scripts/run_mpc.sh
+  LANE_FUSION=1 LOOP=false TARGET_SPEED=0.35 RECORD=1 ./scripts/run_mpc.sh
 ```
+
+This command uses clean simulator sensors. Do not set `SIM_NOISE=1` for the
+current baseline tests.
 
 `START_LANE=center` uses the file directly (no re-localization); the recording
 was made from spawn `(0, -0.25, 0)`, so spawn there.
@@ -101,9 +123,10 @@ ros2 topic echo /qcar2/lane/model                      # BEV detector output
 |---|---|
 | `my_route_clean.npy` | **THE route** — manually-driven right-lane waypoints, full track, on-road through roundabout (spawn 0,-0.25) |
 | `src/.../qcar2_autonomy/qcar2_autonomy/reliable_lane_detector_node.py` | HSV+BEV sliding-window + polynomial lane detector — publishes `/qcar2/lane/model` |
-| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_reference_planner_node.py` | Route planner — follows waypoints, fuses BEV correction on straights |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_reference_planner_node.py` | Route planner — follows waypoints, fuses BEV correction, handles obstacle pass/return |
 | `src/.../qcar2_autonomy/qcar2_autonomy/mpc_drive_node.py` | Pure MPC tracker — solves QP, publishes cmd_vel |
 | `src/.../qcar2_autonomy/qcar2_autonomy/mpc_lidar_obstacle_node.py` | LiDAR obstacle detector |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_sensor_noise_node.py` | Optional noisy odom/LiDAR wrapper for later robustness tests |
 | `src/.../qcar2_autonomy/config/mpc_nodes.yaml` | All ROS parameters (fusion gains, gates, confidence threshold) |
 | `src/.../qcar2_autonomy/config/mpc.yaml` | MPC solver params (horizon, cost weights, vehicle model) |
 | `scripts/run_mpc.sh` | Orchestration — localises waypoints, starts detector, launches MPC |
@@ -140,6 +163,59 @@ again. The fix is to make lane fusion slower and ignore tiny pixel jitter:
   MPC reference.
 - `config/mpc_nodes.yaml` smooths the detector target/track/width estimates and
   keeps command smoothing enabled, reducing steering chatter.
+
+### Obstacle behavior
+
+The LiDAR node publishes `[x, y, radius, front_distance, left_clear,
+right_clear]` on `/mpc/obstacle`. The reference planner projects that obstacle
+onto the waypoint route:
+
+- obstacle inside the current lane gate -> pass left/right or stop if blocked;
+- obstacle outside the lane gate -> ignored as a side object;
+- second obstacle during `RETURN_RIGHT` -> keep `PASS_OBSTACLE` and extend the
+  same overtake before merging back right.
+
+The current behavior is for static or slow obstacles. It does not estimate human
+or obstacle velocity yet, so moving-object handling should be treated as future
+work.
+
+### University-track obstacle test
+
+Terminal 1, start the university track:
+
+```bash
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+ros2 launch qcar2_bringup sim_bringup.launch.py \
+  world:=university_track x:=0.0 y:=-0.25 yaw:=0.0 headless:=false
+```
+
+Terminal 2, place a box on the route:
+
+```bash
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+./scripts/spawn_box.sh 2.18 2.22 obstacle_branch_test
+```
+
+Terminal 3, run the clean BEV-MPC stack:
+
+```bash
+cd ~/rosbot_ws
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+WAYPOINTS=~/rosbot_ws/my_route_clean.npy START_LANE=center \
+  LANE_FUSION=1 LOOP=false TARGET_SPEED=0.35 RECORD=1 ./scripts/run_mpc.sh
+```
+
+Optional monitor:
+
+```bash
+ros2 topic echo /mpc/mode --field data
+ros2 topic echo /mpc/obstacle
+```
 
 ### To record new waypoints
 
