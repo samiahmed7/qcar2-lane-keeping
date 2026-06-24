@@ -67,7 +67,7 @@ class ReliableLaneDetectorNode(Node):
         self.declare_parameter("nominal_lane_width_px", 394.0)
         self.declare_parameter("min_lane_width_px",     220.0)
         self.declare_parameter("max_lane_width_px",     540.0)
-        self.declare_parameter("target_ema_alpha",   0.40)
+        self.declare_parameter("target_ema_alpha",   0.30)
         self.declare_parameter("width_ema_alpha",    0.20)
         self.declare_parameter("confidence_both",    0.70)
         self.declare_parameter("confidence_single",  0.50)
@@ -227,39 +227,45 @@ class ReliableLaneDetectorNode(Node):
         if edge_x is not None and not (self.center_px - 0.20 * self.W < edge_x < self.W * 0.98):
             edge_x = None
 
-        both   = dash_x is not None and edge_x is not None
+        # The SOLID right edge is the stable anchor for the lateral target:
+        # it is continuous, so it does not flicker like the dashed centre line.
+        # The dash is only used to MEASURE the lane width (and add confidence)
+        # when it sits a plausible distance to the LEFT of the edge. This kills
+        # the dash-flicker oscillation and enforces the rule that the dash can
+        # never coincide with the right line (width must exceed min_width).
         target = None
         confidence = 0.0
+        half_w = 0.5 * self.lane_width_ema
 
-        if both:
-            width = edge_x - dash_x
-            if self.min_width <= width <= self.max_width:
-                self.lane_width_ema = (
-                    (1.0 - self.w_alpha) * self.lane_width_ema + self.w_alpha * width
-                )
-            target = 0.5 * (dash_x + edge_x)
-            cov = (d_n + e_n) / (2.0 * self.n_windows)
-            confidence = self.conf_both * min(1.0, cov * 1.5)
-            lane.middle_visible = True;  lane.middle_x = float(dash_x)
-            lane.right_visible  = True;  lane.right_x  = float(edge_x)
+        if edge_x is not None:
+            cov = e_n / float(self.n_windows)
+            base = self.conf_single
+            if dash_x is not None:
+                width = edge_x - dash_x
+                if self.min_width <= width <= self.max_width:
+                    # valid pair: dash is genuinely left of the edge
+                    self.lane_width_ema = (
+                        (1.0 - self.w_alpha) * self.lane_width_ema + self.w_alpha * width
+                    )
+                    half_w = 0.5 * self.lane_width_ema
+                    base = self.conf_both
+                    cov = (d_n + e_n) / (2.0 * self.n_windows)
+                    lane.middle_visible = True;  lane.middle_x = float(dash_x)
+                # else: dash too close to / far from the edge -> bogus, ignore it
+                #       (this is the "dash on the right line" case)
+            target = edge_x - half_w                       # anchor to the solid edge
+            confidence = base * min(1.0, cov * 1.5)
+            lane.right_visible = True;  lane.right_x = float(edge_x)
 
         elif dash_x is not None:
+            # No edge visible: fall back to the dash (less reliable, intermittent).
             edge_est = dash_x + self.lane_width_ema
             if self.center_px < edge_est < self.W * 0.96:
-                target = 0.5 * (dash_x + edge_est)
+                target = dash_x + half_w
                 cov = d_n / float(self.n_windows)
-                confidence = self.conf_single * min(1.0, cov * 1.5)
+                confidence = self.conf_single * 0.8 * min(1.0, cov * 1.5)
                 lane.middle_visible = True;  lane.middle_x = float(dash_x)
                 lane.right_x = float(edge_est)
-
-        elif edge_x is not None:
-            dash_est = edge_x - self.lane_width_ema
-            if self.W * 0.04 < dash_est < self.center_px:
-                target = 0.5 * (dash_est + edge_x)
-                cov = e_n / float(self.n_windows)
-                confidence = self.conf_single * min(1.0, cov * 1.5)
-                lane.right_visible = True;  lane.right_x = float(edge_x)
-                lane.middle_x = float(dash_est)
 
         if target is None:
             self.target_ema = None
