@@ -19,16 +19,10 @@ controller:
 
   # state = [along-track err, cross-track err, velocity err, heading err]
   # control = [acceleration, steering angle]
-  # Tuned from live sim run (RMS=54 cm -> target <10 cm).
-  # Cross-track raised 50->100: lane-centering is the primary objective.
-  # Heading raised 25->40: keeps car aligned to path, prevents drift on curves.
-  # Steer rate raised 10->20: smoother wheel, less overshoot after overtake.
-  # Q_cross=100 saturated the steer (78%) and oscillated with the ~0.5s solve
-  # lag. Moderate tracking (60) + strong steer-rate DAMPING (20) is the stable
-  # combination: high gain + control delay = instability, so damp instead.
   weights:
-    state_cost: [8, 60, 20, 30]
-    final_state_cost: [8, 60, 20, 30]
+    # [TUNED] Cross-track weight (index 1) raised from 60 to 90 to stiffen centering
+    state_cost: [8, 90, 20, 30]
+    final_state_cost: [8, 90, 20, 30]
     input_cost: [5, 5]
     input_rate_cost: [20, 20]
 

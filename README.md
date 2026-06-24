@@ -21,7 +21,7 @@ No trained model files are required for the BEV-MPC run path.
 /qcar2/front_camera/image
         |
         v
-bev_lane_detector_node  -- /qcar2/lane/model
+reliable_lane_detector_node  -- /qcar2/lane/model
         |                           |
         |                           v
 /qcar2/lidar/scan --> mpc_lidar_obstacle_node --> /mpc/obstacle
@@ -55,12 +55,12 @@ One-time MPC solver dependencies:
 python3 -m pip install --user --break-system-packages cvxpy clarabel
 ```
 
-## Run: University Track Loop — HSV/BEV + MPC (current)
+## Run: University Track — HSV/BEV + MPC (current, WORKING)
 
-The car spawns on the **loop bottom straight** (past the T-junction) and drives
-the full loop continuously. MPC follows `my_route_loop.npy` (recorded manually
-in the right lane); the HSV/BEV detector centres the car between the dashed
-centre line and the right edge on every straight.
+**Use `my_route_clean.npy`** — the manually-driven right-lane route. It covers the
+full track and stays on-road through the roundabout. (Do NOT use
+`university_route_rlane.npy` — its computed offset rides the roundabout's outer
+edge and the car goes off after the roundabout curve.)
 
 **Terminal 1 — Gazebo with GUI:**
 
@@ -69,16 +69,24 @@ cd ~/rosbot_ws
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ros2 launch qcar2_bringup sim_bringup.launch.py \
-  world:=university_track x:=2.991 y:=3.818 yaw:=0.0 headless:=false
+  world:=university_track x:=0.0 y:=-0.25 yaw:=0.0 headless:=false
 ```
 
 **Terminal 2 — MPC + BEV/HSV stack:**
 
 ```bash
 cd ~/rosbot_ws
-WAYPOINTS=~/rosbot_ws/my_route_loop.npy START_LANE=center \
-  LANE_FUSION=1 LOOP=true TARGET_SPEED=0.40 ./scripts/run_mpc.sh
+WAYPOINTS=~/rosbot_ws/my_route_clean.npy START_LANE=center \
+  LANE_FUSION=1 LOOP=false TARGET_SPEED=0.40 ./scripts/run_mpc.sh
 ```
+
+`START_LANE=center` uses the file directly (no re-localization); the recording
+was made from spawn `(0, -0.25, 0)`, so spawn there.
+
+> **Gotcha:** `scripts/run_mpc.sh` passes launch-arg defaults for the most
+> important lane-fusion params. To change fusion strength, edit the defaults in
+> `run_mpc.sh` or pass the `LANE_FUSION_*` env vars. The reliable detector also
+> loads `config/mpc_nodes.yaml` for its smoothing/tracking parameters.
 
 **Terminal 3 — optional diagnostics:**
 
@@ -91,8 +99,8 @@ ros2 topic echo /qcar2/lane/model                      # BEV detector output
 
 | File | Role |
 |---|---|
-| `my_route_loop.npy` | Manually recorded right-lane waypoints for the loop (214 pts, spawn-relative) |
-| `src/.../qcar2_autonomy/qcar2_autonomy/reliable_lane_detector_node.py` | HSV+BEV two-line right-lane detector — publishes `/qcar2/lane/model` |
+| `my_route_clean.npy` | **THE route** — manually-driven right-lane waypoints, full track, on-road through roundabout (spawn 0,-0.25) |
+| `src/.../qcar2_autonomy/qcar2_autonomy/reliable_lane_detector_node.py` | HSV+BEV sliding-window + polynomial lane detector — publishes `/qcar2/lane/model` |
 | `src/.../qcar2_autonomy/qcar2_autonomy/mpc_reference_planner_node.py` | Route planner — follows waypoints, fuses BEV correction on straights |
 | `src/.../qcar2_autonomy/qcar2_autonomy/mpc_drive_node.py` | Pure MPC tracker — solves QP, publishes cmd_vel |
 | `src/.../qcar2_autonomy/qcar2_autonomy/mpc_lidar_obstacle_node.py` | LiDAR obstacle detector |
@@ -114,6 +122,24 @@ camera -> HSV white mask -> IPM bird's-eye warp -> column histogram
        -> reference path shifted laterally up to ±30 cm
        -> heading gate disengages fusion at curves/junctions (MPC uses waypoints alone)
 ```
+
+### Straight-line oscillation fix
+
+The car was seeing the lane lines but still wobbled on straights because BEV
+fusion was too aggressive: each small pixel movement in the detected target
+shifted the MPC reference, then the vehicle response changed the camera target
+again. The fix is to make lane fusion slower and ignore tiny pixel jitter:
+
+- `scripts/run_mpc.sh` now loads `config/mpc_nodes.yaml` into
+  `reliable_lane_detector_node`, so detector smoothing is actually used.
+- Fusion defaults are softer: `LANE_FUSION_GAIN=0.70`,
+  `LANE_FUSION_ALPHA=0.08`, `LANE_FUSION_MAX_STEP=0.012`, and
+  `LANE_FUSION_MAX_CORRECTION=0.45`.
+- `mpc_reference_planner_node.py` adds `lane_fusion_deadband_px`; the default
+  `LANE_FUSION_DEADBAND_PX=8.0` means errors inside +/-8 px do not move the
+  MPC reference.
+- `config/mpc_nodes.yaml` smooths the detector target/track/width estimates and
+  keeps command smoothing enabled, reducing steering chatter.
 
 ### To record new waypoints
 
@@ -248,6 +274,7 @@ Important environment variables for `scripts/run_mpc.sh`:
 - `LANE_FUSION_ALPHA`
 - `LANE_FUSION_MAX_CORRECTION`
 - `LANE_FUSION_MAX_STEP`
+- `LANE_FUSION_DEADBAND_PX`
 - `LANE_FUSION_HEADING_GATE`
 - `COMMAND_SMOOTHING`
 - `OMEGA_SMOOTHING_ALPHA`

@@ -96,6 +96,7 @@ fi
 if truthy "${OVERLAY:-1}" || [ "${LF}" = "true" ]; then
     echo "Starting Reliable BEV lane node (debug + MPC lane-fusion model)..."
     nohup ros2 run qcar2_autonomy reliable_lane_detector_node --ros-args \
+        --params-file "${WS}/src/qcar2_autonomous_lanes/qcar2_autonomy/config/mpc_nodes.yaml" \
         -p use_sim_time:=true \
         -p image_topic:=/qcar2/front_camera/image \
         -p lane_model_topic:=${LANE_MODEL_TOPIC:-/qcar2/lane/model} \
@@ -123,11 +124,12 @@ ros2 launch qcar2_autonomy mpc.launch.py \
     lane_fusion_enabled:=${LF} \
     lane_model_topic:=${LANE_MODEL_TOPIC:-/qcar2/lane/model} \
     lane_target_topic:=${LANE_TARGET_TOPIC:-/planning/validated_target_x} \
-    lane_fusion_max_correction_m:=${LANE_FUSION_MAX_CORRECTION:-0.70} \
-    lane_fusion_max_step_m:=${LANE_FUSION_MAX_STEP:-0.040} \
+    lane_fusion_max_correction_m:=${LANE_FUSION_MAX_CORRECTION:-0.45} \
+    lane_fusion_max_step_m:=${LANE_FUSION_MAX_STEP:-0.012} \
+    lane_fusion_deadband_px:=${LANE_FUSION_DEADBAND_PX:-8.0} \
     lane_px_to_m:=${LANE_PX_TO_M:-0.0015} \
-    lane_fusion_gain:=${LANE_FUSION_GAIN:-1.20} \
-    lane_fusion_alpha:=${LANE_FUSION_ALPHA:-0.50} \
+    lane_fusion_gain:=${LANE_FUSION_GAIN:-0.70} \
+    lane_fusion_alpha:=${LANE_FUSION_ALPHA:-0.08} \
     lane_fusion_min_confidence:=${LANE_FUSION_MIN_CONFIDENCE:-0.18} \
     lane_fusion_hold_low_confidence:=${LANE_FUSION_HOLD_LOW_CONFIDENCE:-true} \
     lane_fusion_disable_heading_delta_rad:=${LANE_FUSION_HEADING_GATE:-3.20} \

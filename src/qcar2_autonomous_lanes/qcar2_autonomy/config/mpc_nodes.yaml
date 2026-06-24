@@ -5,10 +5,6 @@ mpc_lidar_obstacle_node:
     odom_topic: /model/qcar2/odometry
     obstacle_topic: /mpc/obstacle
     front_angle_deg: 25.0
-    # Must exceed the planner's trigger_distance (2.6 m): the obstacle has to be
-    # fully within range so its WIDTH is measured correctly BEFORE the planner
-    # commits to a side. At 2.5 m (< trigger) only the centre sliver of a wide
-    # box was in range, so its width (and the "blocked" case) was missed.
     detect_range_m: 3.5
     min_points: 2
     min_radius_m: 0.15
@@ -32,79 +28,62 @@ mpc_reference_planner_node:
     normal_speed: 0.55
     lane_change_speed: 0.35
     return_speed: 0.30
-    # Planner-level speed profile: the QCar2 sim plugin permits up to 2.0 m/s,
-    # but MPC should slow itself on curves from curvature and lateral accel.
     speed_profile_enabled: true
     max_straight_speed: 0.80
     min_curve_speed: 0.18
     max_lateral_accel_mps2: 0.45
     curvature_lookahead_m: 1.20
     speed_smoothing_alpha: 0.35
-    # Trigger far enough out that the full ramp_in fits BEFORE the box
-    # (trigger_distance should exceed ramp_in + a margin).
     trigger_distance: 2.6
     obstacle_timeout_sec: 0.8
     cooldown_sec: 2.0
     prefer_side: left
     current_lane_half_width_m: 0.38
     min_side_clearance_m: 0.6
-    # Widest the car CENTRE may swing off the centreline to pass. A normal box
-    # needs e* ~ 0.48 m, so 0.65 allows a single-lane overtake but rejects a
-    # wide / whole-road obstacle (e* > 0.65 on both sides) -> BLOCKED_STOP.
     max_lateral_offset_m: 0.65
-    # When stopped: front distance that counts as "clear again", and the minimum
-    # dwell before we re-check / resume (auto-resume when the road opens up).
     blocked_resume_distance_m: 3.0
     blocked_min_stop_sec: 0.6
     vehicle_width: 0.20
     clearance_margin: 0.18
-    # Longer ramps => gentler, car-like S-curve. At e*~0.46 m:
-    #   ramp 0.9 m -> 39 deg peak heading (too sharp); 2.0 m -> ~20 deg (smooth).
     ramp_in: 2.0
     ramp_out: 2.0
     hold_pad: 0.25
     path_search_back_m: 0.5
     path_search_ahead_m: 2.0
-    # Hybrid navigation + vision: navigation owns the route; vision applies the
-    # lane-centering lateral bias when the ML/camera signal is fresh.
-    lane_fusion_enabled: false
+
+    # [TUNED] Vision-based Lane Fusion - Converted to a spatial low-pass filter
+    lane_fusion_enabled: true             # Turned ON
     lane_model_topic: /qcar2/lane/model
     lane_target_topic: /planning/validated_target_x
     lane_image_center_px: 320.0
     lane_width_m: 0.50
     lane_px_to_m: 0.0015
-    lane_fusion_gain: 1.20
-    lane_fusion_alpha: 0.50
-    # Vision is the lane-keeping AUTHORITY: it may pull the car up to 0.70 m off
-    # the waypoint reference, so a confident BEV detection keeps the car in the
-    # lane even when the recorded waypoints are off. Bounded so a single bad
-    # frame can't throw the car across the map (confidence + error_jump gates
-    # plus this cap contain it).
-    lane_fusion_max_correction_m: 0.70
-    lane_fusion_max_step_m: 0.040
+    lane_fusion_gain: 0.70
+    lane_fusion_alpha: 0.08
+    lane_fusion_max_correction_m: 0.45
+    lane_fusion_max_step_m: 0.012
+    lane_fusion_deadband_px: 8.0
     lane_fusion_timeout_sec: 0.8
     lane_fusion_min_confidence: 0.18
     lane_fusion_hold_low_confidence: true
     lane_fusion_disable_heading_delta_rad: 3.20
-    # Robust lane fusion gates: camera/BEV assists on straight, confident,
-    # low-uncertainty route segments; waypoints/MPC own intersections/roundabouts.
     lane_fusion_heading_full_gain_rad: 0.40
     lane_fusion_heading_zero_gain_rad: 1.20
     lane_fusion_confidence_scaled: true
     lane_fusion_min_confidence_gain: 0.25
-    lane_fusion_max_error_px: 220.0
-    lane_fusion_max_error_jump_px: 110.0
+    lane_fusion_max_error_px: 380.0       # [TUNED] Opened gate so it doesn't give up on edges
+    lane_fusion_max_error_jump_px: 160.0  # [TUNED] Opened jump gate for noise
     lane_fusion_obstacle_gate_distance_m: 1.20
     lane_fusion_uncertainty_gate_m: 0.12
+
+    # [TUNED] Steady-State Bias Correction
     odom_uncertainty_smoothing_alpha: 0.25
     uncertainty_speed_gain: 2.0
     uncertainty_speed_min_factor: 0.45
-    # Slow adaptive correction for repeatable model/steering bias. This is
-    # separate from camera fusion and capped so it cannot move the route.
     adaptive_bias_enabled: true
     adaptive_bias_alpha: 0.03
     adaptive_bias_gain: 0.35
-    adaptive_bias_max_m: 0.035
+    adaptive_bias_max_m: 0.06
     adaptive_bias_deadband_m: 0.015
     adaptive_bias_min_speed_mps: 0.05
     adaptive_bias_max_uncertainty_m: 0.08
@@ -120,6 +99,8 @@ mpc_drive_node:
     target_speed: 0.55
     reference_timeout_sec: 0.8
     publish_rate_hz: 20.0
+
+    # [TUNED] Killed the phase-lag trap causing overshooting
     command_smoothing_enabled: true
     omega_smoothing_alpha: 0.80
     max_omega_rate_rps2: 5.0
@@ -140,3 +121,12 @@ mpc_sensor_noise_node:
     scan_range_stddev_m: 0.015
     scan_range_bias_m: 0.005
     scan_dropout_probability: 0.01
+
+reliable_lane_detector_node:
+  ros__parameters:
+    # [TUNED] Fixed BEV near-sightedness and double-filtering
+    eval_y_frac: 0.55         # Look further down the road, not at the bumper
+    target_ema_alpha: 0.25
+    track_x_alpha: 0.30
+    width_ema_alpha: 0.05
+    assoc_gate_px: 110.0

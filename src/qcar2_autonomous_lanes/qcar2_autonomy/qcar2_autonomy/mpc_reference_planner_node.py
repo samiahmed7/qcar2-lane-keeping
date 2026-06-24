@@ -91,6 +91,7 @@ class MpcReferencePlannerNode(Node):
         self.declare_parameter("lane_fusion_alpha", 0.25)
         self.declare_parameter("lane_fusion_max_correction_m", 0.06)
         self.declare_parameter("lane_fusion_max_step_m", 0.006)
+        self.declare_parameter("lane_fusion_deadband_px", 0.0)
         self.declare_parameter("lane_fusion_timeout_sec", 0.8)
         self.declare_parameter("lane_fusion_min_confidence", 0.30)
         self.declare_parameter("lane_fusion_hold_low_confidence", True)
@@ -168,6 +169,9 @@ class MpcReferencePlannerNode(Node):
         )
         self.lane_fusion_max_step = abs(
             float(self.get_parameter("lane_fusion_max_step_m").value)
+        )
+        self.lane_fusion_deadband_px = abs(
+            float(self.get_parameter("lane_fusion_deadband_px").value)
         )
         self.lane_fusion_timeout_sec = float(
             self.get_parameter("lane_fusion_timeout_sec").value
@@ -535,6 +539,13 @@ class MpcReferencePlannerNode(Node):
         ):
             self.lane_fusion_status = (
                 f"error_jump_gate:{error_px:+.1f}px"
+            )
+            return 0.0
+        deadband_px = float(getattr(self, "lane_fusion_deadband_px", 0.0))
+        if abs(error_px) <= deadband_px:
+            self.last_accepted_lane_error_px = float(error_px)
+            self.lane_fusion_status = (
+                f"deadband:{source},error={error_px:+.1f}px"
             )
             return 0.0
 

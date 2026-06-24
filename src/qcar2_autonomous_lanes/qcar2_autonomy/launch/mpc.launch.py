@@ -49,6 +49,7 @@ def generate_launch_description():
         DeclareLaunchArgument("lane_target_topic", default_value="/planning/validated_target_x"),
         DeclareLaunchArgument("lane_fusion_max_correction_m", default_value="0.06"),
         DeclareLaunchArgument("lane_fusion_max_step_m", default_value="0.006"),
+        DeclareLaunchArgument("lane_fusion_deadband_px", default_value="0.0"),
         DeclareLaunchArgument("lane_px_to_m", default_value="0.0015"),
         DeclareLaunchArgument("lane_fusion_gain", default_value="0.35"),
         DeclareLaunchArgument("lane_fusion_alpha", default_value="0.25"),
@@ -154,6 +155,10 @@ def generate_launch_description():
                     ),
                     "lane_fusion_max_step_m": ParameterValue(
                         LaunchConfiguration("lane_fusion_max_step_m"),
+                        value_type=float,
+                    ),
+                    "lane_fusion_deadband_px": ParameterValue(
+                        LaunchConfiguration("lane_fusion_deadband_px"),
                         value_type=float,
                     ),
                     "lane_px_to_m": ParameterValue(
