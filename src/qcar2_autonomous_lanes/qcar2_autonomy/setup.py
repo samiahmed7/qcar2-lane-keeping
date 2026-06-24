@@ -26,6 +26,8 @@ setup(
         'console_scripts': [
             # BEV lane detector (classical white-line, right-lane) -- segmentation debug
             'bev_lane_detector_node = qcar2_autonomy.bev_lane_detector_node:main',
+            # Reliable HSV+BEV two-line right-lane detector -- feeds MPC lane fusion
+            'reliable_lane_detector_node = qcar2_autonomy.reliable_lane_detector_node:main',
             # Path recording
             'record_path_node = qcar2_autonomy.record_path_node:main',
             # MPC stack: perception -> planner -> tracker (+ run logger)

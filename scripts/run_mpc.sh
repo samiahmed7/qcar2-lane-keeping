@@ -94,8 +94,8 @@ else
 fi
 
 if truthy "${OVERLAY:-1}" || [ "${LF}" = "true" ]; then
-    echo "Starting HSV+IPM BEV lane node (debug + MPC lane-fusion model)..."
-    nohup ros2 run qcar2_autonomy bev_lane_detector_node --ros-args \
+    echo "Starting Reliable BEV lane node (debug + MPC lane-fusion model)..."
+    nohup ros2 run qcar2_autonomy reliable_lane_detector_node --ros-args \
         -p use_sim_time:=true \
         -p image_topic:=/qcar2/front_camera/image \
         -p lane_model_topic:=${LANE_MODEL_TOPIC:-/qcar2/lane/model} \

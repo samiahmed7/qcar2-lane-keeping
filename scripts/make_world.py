@@ -169,13 +169,17 @@ def _segment_parts_outside_circle(x0, y0, x1, y1, avoid):
     return parts
 
 
-def _strip(xs, ys, prefix, width, rgb, z, stride=1, length_scale=1.4, avoid=None):
+def _strip(xs, ys, prefix, width, rgb, z, stride=1, length_scale=1.4, avoid=None, avoid2=None):
     out = ""
     for i in range(0, len(xs) - 1, stride):
         x0, y0, x1, y1 = xs[i], ys[i], xs[i + 1], ys[i + 1]
-        for j, (ax, ay, bx, by) in enumerate(
-            _segment_parts_outside_circle(x0, y0, x1, y1, avoid)
-        ):
+        parts = _segment_parts_outside_circle(x0, y0, x1, y1, avoid)
+        if avoid2 is not None:
+            clipped = []
+            for ax, ay, bx, by in parts:
+                clipped.extend(_segment_parts_outside_circle(ax, ay, bx, by, avoid2))
+            parts = clipped
+        for j, (ax, ay, bx, by) in enumerate(parts):
             length_raw = float(np.hypot(bx - ax, by - ay))
             if length_raw < 0.02:
                 continue
@@ -267,21 +271,24 @@ def _roundabout_opening_gaps(*paths):
 RB_ZONE = (RB_C[0], RB_C[1], RB_R + HALF - 0.5 * LINE_W)
 
 
-def road(xy, prefix):
+def road(xy, prefix, junction_avoid=None):
     """Grey road + solid white edges on both sides + dashed centre line.
 
     Everything is clipped out of the roundabout zone so the straight-road
     markings stop at the circle instead of crossing through it.
+    junction_avoid is an optional (cx, cy, r) circle that additionally clips
+    edge/centre-line markings — used at the T-junction so the branch markings
+    don't bleed onto the main loop road surface.
     """
     xs, ys = _resample(xy)
     out = _strip(xs, ys, prefix, ROAD_W, GREY, ROAD_Z, avoid=RB_ZONE)
     edge_offset = HALF - 0.5 * LINE_W
     lx, ly = _offset(xs, ys, +edge_offset)
     rx, ry = _offset(xs, ys, -edge_offset)
-    out += _strip(lx, ly, prefix + "_le", LINE_W, WHITE, LINE_Z, avoid=RB_ZONE)
-    out += _strip(rx, ry, prefix + "_re", LINE_W, WHITE, LINE_Z, avoid=RB_ZONE)
+    out += _strip(lx, ly, prefix + "_le", LINE_W, WHITE, LINE_Z, avoid=RB_ZONE, avoid2=junction_avoid)
+    out += _strip(rx, ry, prefix + "_re", LINE_W, WHITE, LINE_Z, avoid=RB_ZONE, avoid2=junction_avoid)
     out += _strip(xs, ys, prefix + "_cd", CENTER_LINE_W, WHITE, LINE_Z,
-                  stride=3, length_scale=1.0, avoid=RB_ZONE)
+                  stride=3, length_scale=1.0, avoid=RB_ZONE, avoid2=junction_avoid)
     out += _strip_in_annulus(xs, ys, prefix + "_rb_cd_join",
                              CENTER_LINE_W, WHITE, LINE_Z + 0.001,
                              RB_R + RB_CENTER_JOIN_INSET,
@@ -366,7 +373,15 @@ def main():
     pkg_worlds = ws / "src/qcar2_autonomous_lanes/qcar2_worlds"
 
     opening_gaps = _roundabout_opening_gaps(loop, branch)
-    body = road(loop, "loop") + road(branch, "branch") + roundabout(opening_gaps)
+
+    # Clip branch markings at the T-junction so they don't overlap the main loop
+    # road surface. The branch endpoint sits on the loop centreline; a circle of
+    # radius HALF+SEG (0.75 m) terminates the edge/centre-line tiles just before
+    # they enter the loop road body.
+    tj_x, tj_y = float(branch[0, -1]), float(branch[1, -1])
+    TJ_ZONE = (tj_x, tj_y, HALF + SEG)
+
+    body = road(loop, "loop") + road(branch, "branch", junction_avoid=TJ_ZONE) + roundabout(opening_gaps)
     body += box("start_marker", float(branch[0, 0]), float(branch[1, 0]), 0.01,
                 0.0, 0.4, 0.4, 0.02, BLUE)
 

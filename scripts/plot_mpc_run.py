@@ -22,7 +22,17 @@ import matplotlib.pyplot as plt
 
 ws = pathlib.Path.home() / "rosbot_ws"
 log_path = sys.argv[1] if len(sys.argv) > 1 else str(ws / "mpc_run_log.npz")
-wp_path = sys.argv[2] if len(sys.argv) > 2 else str(ws / "track_waypoints.npy")
+# Default to the waypoints the run ACTUALLY followed. run_mpc.sh writes the
+# spawn-relative route it tracks to local_waypoints.npy (same frame as odom),
+# so cross-track is meaningful. Falling back to track_waypoints.npy (the old
+# lab track) silently produces nonsense errors on the university route.
+_local_wp = "/tmp/qcar2_pipeline/local_waypoints.npy"
+if len(sys.argv) > 2:
+    wp_path = sys.argv[2]
+elif os.path.exists(_local_wp):
+    wp_path = _local_wp
+else:
+    wp_path = str(ws / "track_waypoints.npy")
 out_png = str(ws / "mpc_run_plot.png")
 
 d = np.load(log_path, allow_pickle=True)

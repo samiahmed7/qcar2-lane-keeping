@@ -55,38 +55,83 @@ One-time MPC solver dependencies:
 python3 -m pip install --user --break-system-packages cvxpy clarabel
 ```
 
-## Run: University Track, Right Lane, HSV/BEV + MPC
+## Run: University Track Loop — HSV/BEV + MPC (current)
 
-Use these terminal commands for the main BEV-MPC setup.
+The car spawns on the **loop bottom straight** (past the T-junction) and drives
+the full loop continuously. MPC follows `my_route_loop.npy` (recorded manually
+in the right lane); the HSV/BEV detector centres the car between the dashed
+centre line and the right edge on every straight.
 
-Terminal 1: start Gazebo on the university track, spawning the car in the right
-lane.
+**Terminal 1 — Gazebo with GUI:**
 
 ```bash
 cd ~/rosbot_ws
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
-ros2 launch qcar2_bringup sim_bringup.launch.py world:=university_track x:=0.0 y:=-0.25 yaw:=0.0 headless:=false
+ros2 launch qcar2_bringup sim_bringup.launch.py \
+  world:=university_track x:=2.991 y:=3.818 yaw:=0.0 headless:=false
 ```
 
-Terminal 2: run MPC navigation with HSV/BEV lane fusion.
+**Terminal 2 — MPC + BEV/HSV stack:**
 
 ```bash
 cd ~/rosbot_ws
-START_LANE=right LANE_FUSION=1 OVERLAY=1 TARGET_SPEED=0.55 LOOP=false ./scripts/run_mpc.sh
+WAYPOINTS=~/rosbot_ws/my_route_loop.npy START_LANE=center \
+  LANE_FUSION=1 LOOP=true TARGET_SPEED=0.40 ./scripts/run_mpc.sh
 ```
 
-Terminal 3: watch the BEV lane model and fusion status.
+**Terminal 3 — optional diagnostics:**
 
 ```bash
-ros2 topic echo /qcar2/lane/model
-ros2 topic echo /mpc/lane_fusion_status
+ros2 topic echo /mpc/lane_fusion_status --field data   # fusion active/gated
+ros2 topic echo /qcar2/lane/model                      # BEV detector output
 ```
 
-Optional: open the BEV debug image.
+### Key files
+
+| File | Role |
+|---|---|
+| `my_route_loop.npy` | Manually recorded right-lane waypoints for the loop (214 pts, spawn-relative) |
+| `src/.../qcar2_autonomy/qcar2_autonomy/reliable_lane_detector_node.py` | HSV+BEV two-line right-lane detector — publishes `/qcar2/lane/model` |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_reference_planner_node.py` | Route planner — follows waypoints, fuses BEV correction on straights |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_drive_node.py` | Pure MPC tracker — solves QP, publishes cmd_vel |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_lidar_obstacle_node.py` | LiDAR obstacle detector |
+| `src/.../qcar2_autonomy/config/mpc_nodes.yaml` | All ROS parameters (fusion gains, gates, confidence threshold) |
+| `src/.../qcar2_autonomy/config/mpc.yaml` | MPC solver params (horizon, cost weights, vehicle model) |
+| `scripts/run_mpc.sh` | Orchestration — localises waypoints, starts detector, launches MPC |
+| `scripts/drive_teleop.py` | Keyboard teleop for recording new waypoints (holds steering) |
+| `scripts/record_path.sh` | Records `/model/qcar2/odometry` to a `.npy` waypoint file |
+| `scripts/plot_mpc_run.py` | Plots a recorded run vs waypoints (cross-track error, speed, steering) |
+| `src/.../qcar2_worlds/worlds/university_track.sdf` | Gazebo world (road tiles, lane markings, roundabout) |
+
+### How BEV lane fusion works
+
+```
+camera -> HSV white mask -> IPM bird's-eye warp -> column histogram
+       -> find dashed centre + solid right edge -> midpoint = right-lane centre
+       -> error_px = midpoint - image_centre
+       -> planner applies: correction = -error_px * (lane_width_m / est_width_px)
+       -> reference path shifted laterally up to ±30 cm
+       -> heading gate disengages fusion at curves/junctions (MPC uses waypoints alone)
+```
+
+### To record new waypoints
+
+1. Launch Gazebo (any spawn position).
+2. `WAYPOINTS=~/rosbot_ws/my_route_loop.npy SPACING=0.10 ./scripts/record_path.sh`
+3. `python3 scripts/drive_teleop.py` — W/S speed, A/D steer (values hold), Space stop.
+4. Drive one lap in the right lane; Ctrl-C Terminal 2 to save.
+5. Set spawn `x`/`y` to the world position where recording started.
+
+### Re-run with the old right-lane route (pre-computed)
 
 ```bash
-python3 scripts/view_overlay.py /qcar2/lane/debug_image
+# Terminal 1 — spawn at the branch start
+ros2 launch qcar2_bringup sim_bringup.launch.py \
+  world:=university_track x:=0.0 y:=-0.25 yaw:=0.0 headless:=false
+
+# Terminal 2
+START_LANE=right LANE_FUSION=1 TARGET_SPEED=0.40 LOOP=false ./scripts/run_mpc.sh
 ```
 
 ## One-Shot Headless Test
@@ -210,13 +255,15 @@ Important environment variables for `scripts/run_mpc.sh`:
 
 ## Notes
 
-- `/model/qcar2/odometry` is spawn-relative in this simulator. For the right-lane
-  university route, spawn at `x:=0.0 y:=-0.25 yaw:=0.0` and run with
-  `START_LANE=right`.
-- Use `LOOP=false` for the university branch route.
-- The headless sim can run much slower than wall time on this machine; use a long
-  `DUR` for full-route validation.
-- The BEV detector is classical HSV/IPM and does not require trained model files.
+- `/model/qcar2/odometry` is **spawn-relative** — always starts at (0,0,0). Waypoints
+  must be recorded from the same spawn position used at run time.
+- `my_route_loop.npy` was recorded from spawn `x:=2.991 y:=3.818 yaw:=0.0`.
+  Use that exact spawn when running with `WAYPOINTS=my_route_loop.npy`.
+- `LOOP=true` for the loop-only route; `LOOP=false` for branch+route one-shot.
+- The BEV detector is classical HSV/IPM — no trained weights required.
+- After editing `mpc_nodes.yaml` or `reliable_lane_detector_node.py`, no rebuild
+  is needed (symlink-install). Restart `run_mpc.sh` to pick up changes.
+- To plot a recorded run: `python3 scripts/plot_mpc_run.py mpc_run_log.npz my_route_loop.npy`
 
 ## Repository
 
