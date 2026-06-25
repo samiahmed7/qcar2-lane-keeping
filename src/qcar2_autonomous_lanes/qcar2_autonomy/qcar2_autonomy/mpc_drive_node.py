@@ -12,26 +12,6 @@ Inputs:
 
 Output:
     /model/qcar2/cmd_vel        geometry_msgs/Twist
-
-[FIXED] solver phase-lag / straight-line oscillation:
-    self.mpc.solve(..., max_iter=2) -> max_iter=1 below.
-    Measured against the vendored cvxpy_mpc.MPC class + this project's
-    mpc.yaml weights/horizon: the QP's along/cross-track cost rotates the
-    state Variables by Parameter cos/sin terms before squaring them, which
-    makes the problem non-DPP (cvxpy warns: "subsequent solves will not be
-    faster than the first one"). Every .solve() call therefore pays full
-    re-canonicalization, and with max_iter=2 it ALWAYS runs that twice
-    (convergence tolerance is essentially never met after 1 pass for this
-    motion) -- measured ~310ms/.solve() at horizon_time=3.0s. max_iter=1
-    relies on the warm-started trajectory from the previous tick as the
-    linearization point, which is the standard real-time-iteration (RTI)
-    scheme for receding-horizon MPC (one re-linearization per control tick,
-    not a fully-converged solve per tick) -- measured ~158ms/.solve(), i.e.
-    roughly half the replan latency for free. Pair this with shortening
-    horizon_time in mpc.yaml (e.g. 3.0 -> 1.5-2.0) for a further ~2-3x cut;
-    see mpc.yaml for that change. A full DPP-compliant rewrite of the cost
-    (removing the recanonicalization entirely) is possible but is a bigger,
-    separate undertaking -- this max_iter change is the safe, immediate fix.
 """
 import math
 import pathlib
@@ -73,10 +53,6 @@ class MpcDriveNode(Node):
         self.declare_parameter("command_smoothing_enabled", True)
         self.declare_parameter("omega_smoothing_alpha", 0.80)
         self.declare_parameter("max_omega_rate_rps2", 5.0)
-        # [FIXED] solver phase-lag: one re-linearization per control tick
-        # (real-time-iteration scheme) instead of forcing two full
-        # canonicalize+solve passes every tick. See module docstring.
-        self.declare_parameter("mpc_max_iter", 1)
 
         self.mpc = MPC(str(self.get_parameter("config_path").value))
         self.dt = self.mpc.dt
@@ -95,9 +71,6 @@ class MpcDriveNode(Node):
             max(0.0, float(self.get_parameter("omega_smoothing_alpha").value)),
         )
         self.max_omega_rate = max(0.0, float(self.get_parameter("max_omega_rate_rps2").value))
-        # [FIXED] was hardcoded to 2 at the call site; now a tunable param
-        # defaulting to 1 (see declare_parameter above and module docstring).
-        self.mpc_max_iter = max(1, int(self.get_parameter("mpc_max_iter").value))
 
         self.state = None
         self.reference_path = None
@@ -143,8 +116,7 @@ class MpcDriveNode(Node):
             "Pure MPC tracker ready: "
             f"odom={self.get_parameter('odom_topic').value}, "
             f"reference={self.get_parameter('reference_path_topic').value}, "
-            f"cmd={self.get_parameter('cmd_topic').value}, "
-            f"mpc_max_iter={self.mpc_max_iter}"
+            f"cmd={self.get_parameter('cmd_topic').value}"
         )
 
     def _on_odom(self, msg: Odometry):
@@ -219,10 +191,7 @@ class MpcDriveNode(Node):
                 continue
 
             try:
-                # [FIXED] was max_iter=2 (always ran twice, ~310ms/call at
-                # horizon_time=3.0s). max_iter=self.mpc_max_iter (default 1)
-                # halves that to ~158ms/call -- see module docstring.
-                _, cmd = self.mpc.solve(state, ref, obstacle=None, max_iter=self.mpc_max_iter)
+                _, cmd = self.mpc.solve(state, ref, obstacle=None, max_iter=2)
             except Exception as exc:  # noqa: BLE001
                 self.get_logger().warn(
                     f"MPC solve error: {exc}",
