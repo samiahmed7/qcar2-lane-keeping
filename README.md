@@ -10,13 +10,10 @@ The design is intentionally simple:
 - Camera HSV/BEV detects white lane markings and publishes `/qcar2/lane/model`.
 - LiDAR detects obstacles and publishes `/mpc/obstacle`.
 - The planner builds a route reference, applies a small BEV lane-centering
-  correction, handles obstacle pass/return behavior, and publishes
-  `/mpc/reference_path`.
+  correction, and publishes `/mpc/reference_path`.
 - MPC tracks that reference and publishes `/model/qcar2/cmd_vel`.
 
 No trained model files are required for the BEV-MPC run path.
-Sensor-noise injection exists, but it is off unless `SIM_NOISE=1` or
-`SENSOR_NOISE=1` is set.
 
 ## Architecture
 
@@ -24,7 +21,7 @@ Sensor-noise injection exists, but it is off unless `SIM_NOISE=1` or
 /qcar2/front_camera/image
         |
         v
-reliable_lane_detector_node  -- /qcar2/lane/model
+bev_lane_detector_node  -- /qcar2/lane/model
         |                           |
         |                           v
 /qcar2/lidar/scan --> mpc_lidar_obstacle_node --> /mpc/obstacle
@@ -43,20 +40,6 @@ reliable_lane_detector_node  -- /qcar2/lane/model
                          /model/qcar2/cmd_vel
 ```
 
-Active nodes in the normal no-noise run:
-
-- `reliable_lane_detector_node`: HSV mask + BEV/IPM lane model and debug image.
-- `mpc_lidar_obstacle_node`: LiDAR front obstacle, left/right clearance.
-- `mpc_reference_planner_node`: waypoint route reference, BEV lane fusion,
-  static-obstacle pass/return state machine.
-- `mpc_drive_node`: MPC controller that tracks `/mpc/reference_path`.
-- `mpc_logger_node`: optional, only when `RECORD=1`.
-
-Optional node:
-
-- `mpc_sensor_noise_node`: only when `SIM_NOISE=1` or `SENSOR_NOISE=1`; republishes
-  noisy odometry/LiDAR for sim-to-real robustness tests.
-
 ## Build
 
 ```bash
@@ -72,12 +55,12 @@ One-time MPC solver dependencies:
 python3 -m pip install --user --break-system-packages cvxpy clarabel
 ```
 
-## Run: University Track — HSV/BEV + MPC (current, WORKING)
+## Run: University Track Loop — HSV/BEV + MPC (current)
 
-**Use `my_route_clean.npy`** — the manually-driven right-lane route. It covers the
-full track and stays on-road through the roundabout. (Do NOT use
-`university_route_rlane.npy` — its computed offset rides the roundabout's outer
-edge and the car goes off after the roundabout curve.)
+The car spawns on the **loop bottom straight** (past the T-junction) and drives
+the full loop continuously. MPC follows `my_route_loop.npy` (recorded manually
+in the right lane); the HSV/BEV detector centres the car between the dashed
+centre line and the right edge on every straight.
 
 **Terminal 1 — Gazebo with GUI:**
 
@@ -86,29 +69,16 @@ cd ~/rosbot_ws
 source /opt/ros/jazzy/setup.bash
 source install/setup.bash
 ros2 launch qcar2_bringup sim_bringup.launch.py \
-  world:=university_track x:=0.0 y:=-0.25 yaw:=0.0 headless:=false
+  world:=university_track x:=2.991 y:=3.818 yaw:=0.0 headless:=false
 ```
 
 **Terminal 2 — MPC + BEV/HSV stack:**
 
 ```bash
 cd ~/rosbot_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-WAYPOINTS=~/rosbot_ws/my_route_clean.npy START_LANE=center \
-  LANE_FUSION=1 LOOP=false TARGET_SPEED=0.35 RECORD=1 ./scripts/run_mpc.sh
+WAYPOINTS=~/rosbot_ws/my_route_loop.npy START_LANE=center \
+  LANE_FUSION=1 LOOP=true TARGET_SPEED=0.40 ./scripts/run_mpc.sh
 ```
-
-This command uses clean simulator sensors. Do not set `SIM_NOISE=1` for the
-current baseline tests.
-
-`START_LANE=center` uses the file directly (no re-localization); the recording
-was made from spawn `(0, -0.25, 0)`, so spawn there.
-
-> **Gotcha:** `scripts/run_mpc.sh` passes launch-arg defaults for the most
-> important lane-fusion params. To change fusion strength, edit the defaults in
-> `run_mpc.sh` or pass the `LANE_FUSION_*` env vars. The reliable detector also
-> loads `config/mpc_nodes.yaml` for its smoothing/tracking parameters.
 
 **Terminal 3 — optional diagnostics:**
 
@@ -119,21 +89,20 @@ ros2 topic echo /qcar2/lane/model                      # BEV detector output
 
 ### Key files
 
-| File | Role |
-|---|---|
-| `my_route_clean.npy` | **THE route** — manually-driven right-lane waypoints, full track, on-road through roundabout (spawn 0,-0.25) |
-| `src/.../qcar2_autonomy/qcar2_autonomy/reliable_lane_detector_node.py` | HSV+BEV sliding-window + polynomial lane detector — publishes `/qcar2/lane/model` |
-| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_reference_planner_node.py` | Route planner — follows waypoints, fuses BEV correction, handles obstacle pass/return |
-| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_drive_node.py` | Pure MPC tracker — solves QP, publishes cmd_vel |
-| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_lidar_obstacle_node.py` | LiDAR obstacle detector |
-| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_sensor_noise_node.py` | Optional noisy odom/LiDAR wrapper for later robustness tests |
-| `src/.../qcar2_autonomy/config/mpc_nodes.yaml` | All ROS parameters (fusion gains, gates, confidence threshold) |
-| `src/.../qcar2_autonomy/config/mpc.yaml` | MPC solver params (horizon, cost weights, vehicle model) |
-| `scripts/run_mpc.sh` | Orchestration — localises waypoints, starts detector, launches MPC |
-| `scripts/drive_teleop.py` | Keyboard teleop for recording new waypoints (holds steering) |
-| `scripts/record_path.sh` | Records `/model/qcar2/odometry` to a `.npy` waypoint file |
-| `scripts/plot_mpc_run.py` | Plots a recorded run vs waypoints (cross-track error, speed, steering) |
-| `src/.../qcar2_worlds/worlds/university_track.sdf` | Gazebo world (road tiles, lane markings, roundabout) |
+| File                                                                   | Role                                                                          |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `my_route_loop.npy`                                                    | Manually recorded right-lane waypoints for the loop (214 pts, spawn-relative) |
+| `src/.../qcar2_autonomy/qcar2_autonomy/reliable_lane_detector_node.py` | HSV+BEV two-line right-lane detector — publishes `/qcar2/lane/model`          |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_reference_planner_node.py`  | Route planner — follows waypoints, fuses BEV correction on straights          |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_drive_node.py`              | Pure MPC tracker — solves QP, publishes cmd_vel                               |
+| `src/.../qcar2_autonomy/qcar2_autonomy/mpc_lidar_obstacle_node.py`     | LiDAR obstacle detector                                                       |
+| `src/.../qcar2_autonomy/config/mpc_nodes.yaml`                         | All ROS parameters (fusion gains, gates, confidence threshold)                |
+| `src/.../qcar2_autonomy/config/mpc.yaml`                               | MPC solver params (horizon, cost weights, vehicle model)                      |
+| `scripts/run_mpc.sh`                                                   | Orchestration — localises waypoints, starts detector, launches MPC            |
+| `scripts/drive_teleop.py`                                              | Keyboard teleop for recording new waypoints (holds steering)                  |
+| `scripts/record_path.sh`                                               | Records `/model/qcar2/odometry` to a `.npy` waypoint file                     |
+| `scripts/plot_mpc_run.py`                                              | Plots a recorded run vs waypoints (cross-track error, speed, steering)        |
+| `src/.../qcar2_worlds/worlds/university_track.sdf`                     | Gazebo world (road tiles, lane markings, roundabout)                          |
 
 ### How BEV lane fusion works
 
@@ -144,77 +113,6 @@ camera -> HSV white mask -> IPM bird's-eye warp -> column histogram
        -> planner applies: correction = -error_px * (lane_width_m / est_width_px)
        -> reference path shifted laterally up to ±30 cm
        -> heading gate disengages fusion at curves/junctions (MPC uses waypoints alone)
-```
-
-### Straight-line oscillation fix
-
-The car was seeing the lane lines but still wobbled on straights because BEV
-fusion was too aggressive: each small pixel movement in the detected target
-shifted the MPC reference, then the vehicle response changed the camera target
-again. The fix is to make lane fusion slower and ignore tiny pixel jitter:
-
-- `scripts/run_mpc.sh` now loads `config/mpc_nodes.yaml` into
-  `reliable_lane_detector_node`, so detector smoothing is actually used.
-- Fusion defaults are softer: `LANE_FUSION_GAIN=0.70`,
-  `LANE_FUSION_ALPHA=0.08`, `LANE_FUSION_MAX_STEP=0.012`, and
-  `LANE_FUSION_MAX_CORRECTION=0.45`.
-- `mpc_reference_planner_node.py` adds `lane_fusion_deadband_px`; the default
-  `LANE_FUSION_DEADBAND_PX=8.0` means errors inside +/-8 px do not move the
-  MPC reference.
-- `config/mpc_nodes.yaml` smooths the detector target/track/width estimates and
-  keeps command smoothing enabled, reducing steering chatter.
-
-### Obstacle behavior
-
-The LiDAR node publishes `[x, y, radius, front_distance, left_clear,
-right_clear]` on `/mpc/obstacle`. The reference planner projects that obstacle
-onto the waypoint route:
-
-- obstacle inside the current lane gate -> pass left/right or stop if blocked;
-- obstacle outside the lane gate -> ignored as a side object;
-- second obstacle during `RETURN_RIGHT` -> keep `PASS_OBSTACLE` and extend the
-  same overtake before merging back right.
-
-The current behavior is for static or slow obstacles. It does not estimate human
-or obstacle velocity yet, so moving-object handling should be treated as future
-work.
-
-### University-track obstacle test
-
-Terminal 1, start the university track:
-
-```bash
-cd ~/rosbot_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-ros2 launch qcar2_bringup sim_bringup.launch.py \
-  world:=university_track x:=0.0 y:=-0.25 yaw:=0.0 headless:=false
-```
-
-Terminal 2, place a box on the route:
-
-```bash
-cd ~/rosbot_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-./scripts/spawn_box.sh 2.18 2.22 obstacle_branch_test
-```
-
-Terminal 3, run the clean BEV-MPC stack:
-
-```bash
-cd ~/rosbot_ws
-source /opt/ros/jazzy/setup.bash
-source install/setup.bash
-WAYPOINTS=~/rosbot_ws/my_route_clean.npy START_LANE=center \
-  LANE_FUSION=1 LOOP=false TARGET_SPEED=0.35 RECORD=1 ./scripts/run_mpc.sh
-```
-
-Optional monitor:
-
-```bash
-ros2 topic echo /mpc/mode --field data
-ros2 topic echo /mpc/obstacle
 ```
 
 ### To record new waypoints
@@ -235,6 +133,38 @@ ros2 launch qcar2_bringup sim_bringup.launch.py \
 # Terminal 2
 START_LANE=right LANE_FUSION=1 TARGET_SPEED=0.40 LOOP=false ./scripts/run_mpc.sh
 ```
+
+## V2V basic communication demo
+
+A lightweight V2V demo is available for sending stop/go/yield commands to the QCar2 MPC stack from a separate terminal.
+
+**Terminal 2 — start the MPC stack as usual**
+
+```bash
+cd ~/qcar2-bevmpc
+source /opt/ros/jazzy/setup.bash
+source ~/rosbot_ws_bevmpc/install/setup.bash
+WAYPOINTS=university_route.npy START_LANE=right LOOP=false ./scripts/run_mpc.sh
+```
+
+**Terminal 3 — run the V2V sender**
+
+```bash
+cd ~/qcar2-lane-keeping
+source /opt/ros/jazzy/setup.bash
+source install/setup.bash
+python3 scripts/v2v_basic_comm.py --vehicle-id qcar2 --priority 1
+```
+
+From the same terminal, or from another terminal, you can send one-shot commands without blocking the status publisher:
+
+```bash
+python3 scripts/v2v_basic_comm.py --vehicle-id qcar2 --priority 1 --command stop
+python3 scripts/v2v_basic_comm.py --vehicle-id qcar2 --priority 1 --command go
+python3 scripts/v2v_basic_comm.py --vehicle-id qcar2 --priority 1 --command yield
+```
+
+The sender publishes status on `/v2v/intent` and commands on `/v2v/commands`. The MPC drive node receives `/v2v/commands` and overrides the MPC output to zero for `stop`/`yield`, resuming on `go`.
 
 ## One-Shot Headless Test
 
@@ -301,35 +231,35 @@ The important route files are:
 
 ## Useful Topics
 
-| Topic | Purpose |
-|---|---|
-| `/qcar2/front_camera/image` | Raw front camera. |
-| `/qcar2/lane/model` | HSV/BEV lane model used by MPC lane fusion. |
-| `/qcar2/lane/debug_image` | HSV/BEV debug overlay. |
-| `/qcar2/lidar/scan` | 2D LiDAR. |
-| `/model/qcar2/odometry` | Vehicle pose and speed. |
-| `/mpc/obstacle` | LiDAR obstacle estimate. |
-| `/mpc/reference_path` | Route reference after obstacle/lane-fusion corrections. |
-| `/mpc/target_speed` | MPC speed target. |
-| `/mpc/mode` | Planner state. |
-| `/mpc/lane_fusion_status` | Why BEV fusion is active/gated and current offset. |
-| `/model/qcar2/cmd_vel` | Final drive command. |
+| Topic                       | Purpose                                                 |
+| --------------------------- | ------------------------------------------------------- |
+| `/qcar2/front_camera/image` | Raw front camera.                                       |
+| `/qcar2/lane/model`         | HSV/BEV lane model used by MPC lane fusion.             |
+| `/qcar2/lane/debug_image`   | HSV/BEV debug overlay.                                  |
+| `/qcar2/lidar/scan`         | 2D LiDAR.                                               |
+| `/model/qcar2/odometry`     | Vehicle pose and speed.                                 |
+| `/mpc/obstacle`             | LiDAR obstacle estimate.                                |
+| `/mpc/reference_path`       | Route reference after obstacle/lane-fusion corrections. |
+| `/mpc/target_speed`         | MPC speed target.                                       |
+| `/mpc/mode`                 | Planner state.                                          |
+| `/mpc/lane_fusion_status`   | Why BEV fusion is active/gated and current offset.      |
+| `/model/qcar2/cmd_vel`      | Final drive command.                                    |
 
 ## Useful Scripts
 
-| Script | Purpose |
-|---|---|
-| `scripts/run_mpc.sh` | Main terminal-run MPC stack. |
-| `scripts/autorun_mpc_route.sh` | Headless sim + BEV-MPC + record + plot. |
-| `scripts/autorun_bev_fusion.sh` | Lab-track BEV fusion smoke test. |
-| `scripts/grab_bev.sh` | Save raw camera and BEV debug PNGs. |
-| `scripts/make_track.py` | Generate university route arrays. |
-| `scripts/make_world.py` | Generate `university_track.sdf`. |
-| `scripts/make_route_check.py` | Generate/check the right-lane route. |
-| `scripts/plot_mpc_run.py` | Plot a recorded MPC run. |
-| `scripts/view_overlay.py` | View `/qcar2/lane/debug_image` or another image topic. |
-| `scripts/spawn_box.sh` | Spawn a LiDAR-visible obstacle. |
-| `scripts/stop_lane_keeping.sh` | Stop sim/autonomy processes. |
+| Script                          | Purpose                                                |
+| ------------------------------- | ------------------------------------------------------ |
+| `scripts/run_mpc.sh`            | Main terminal-run MPC stack.                           |
+| `scripts/autorun_mpc_route.sh`  | Headless sim + BEV-MPC + record + plot.                |
+| `scripts/autorun_bev_fusion.sh` | Lab-track BEV fusion smoke test.                       |
+| `scripts/grab_bev.sh`           | Save raw camera and BEV debug PNGs.                    |
+| `scripts/make_track.py`         | Generate university route arrays.                      |
+| `scripts/make_world.py`         | Generate `university_track.sdf`.                       |
+| `scripts/make_route_check.py`   | Generate/check the right-lane route.                   |
+| `scripts/plot_mpc_run.py`       | Plot a recorded MPC run.                               |
+| `scripts/view_overlay.py`       | View `/qcar2/lane/debug_image` or another image topic. |
+| `scripts/spawn_box.sh`          | Spawn a LiDAR-visible obstacle.                        |
+| `scripts/stop_lane_keeping.sh`  | Stop sim/autonomy processes.                           |
 
 ## Tuning
 
@@ -350,7 +280,6 @@ Important environment variables for `scripts/run_mpc.sh`:
 - `LANE_FUSION_ALPHA`
 - `LANE_FUSION_MAX_CORRECTION`
 - `LANE_FUSION_MAX_STEP`
-- `LANE_FUSION_DEADBAND_PX`
 - `LANE_FUSION_HEADING_GATE`
 - `COMMAND_SMOOTHING`
 - `OMEGA_SMOOTHING_ALPHA`
