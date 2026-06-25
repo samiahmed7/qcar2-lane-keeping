@@ -21,14 +21,32 @@ While running, type one of the following in the terminal:
 """
 
 import argparse
+import importlib
 import json
 import os
 import threading
 import time
+from typing import Any
 
-import rclpy
-from rclpy.node import Node
-from std_msgs.msg import String
+try:
+    rclpy = importlib.import_module("rclpy")
+    Node = importlib.import_module("rclpy.node").Node
+    String = importlib.import_module("std_msgs.msg").String
+    _ROS_IMPORT_ERROR = None
+except ImportError as exc:
+    rclpy = None
+    Node = object
+    String = None
+    _ROS_IMPORT_ERROR = exc
+
+
+def _ensure_ros_runtime() -> None:
+    if rclpy is None:
+        raise RuntimeError(
+            "This script requires a ROS 2 environment. Source the workspace setup "
+            "before running it, for example: source /opt/ros/jazzy/setup.bash && "
+            "source install/setup.bash"
+        ) from _ROS_IMPORT_ERROR
 
 
 class V2VSignalNode(Node):
@@ -61,7 +79,7 @@ class V2VSignalNode(Node):
         self.running = True
         self.emergency_stop = False
 
-    def _on_message(self, msg: String) -> None:
+    def _on_message(self, msg: Any) -> None:
         try:
             payload = json.loads(msg.data)
         except json.JSONDecodeError as exc:
@@ -89,7 +107,7 @@ class V2VSignalNode(Node):
             return "yield"
         return "proceed"
 
-    def _on_command(self, msg: String) -> None:
+    def _on_command(self, msg: Any) -> None:
         try:
             payload = json.loads(msg.data)
         except json.JSONDecodeError as exc:
@@ -172,6 +190,8 @@ def one_shot_command(node: V2VSignalNode, action: str) -> None:
 
 
 def main() -> None:
+    _ensure_ros_runtime()
+
     parser = argparse.ArgumentParser(description="Simple V2V signal exchange")
     parser.add_argument("--vehicle-id", default="qcar2", help="Unique vehicle name")
     parser.add_argument("--priority", type=int, default=1, help="Higher priority yields")
