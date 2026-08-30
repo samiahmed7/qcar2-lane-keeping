@@ -134,26 +134,26 @@ class LidarOvertakeNode(Node):
         # above. Reverted for the same reason.
         self.hard_stop_front_distance = 0.40
 
-        # V2V-assisted obstacle detection (added 2026-08-27): on curves,
-        # front_stop_curve_m (0.45) means obstacle_ahead goes False beyond
-        # 0.45m, so the state machine never even considers overtaking --
-        # QCar2 just creeps behind ROSbot3 at the follow-cap's low speed
-        # forever, never committing to OVERTAKE_LEFT, because LiDAR alone
-        # can't see far enough through the turn to confirm "obstacle ahead."
-        # /v2v/gap is a real along-path distance and doesn't suffer that
-        # curve-blindness, so it fills exactly this gap.
+        # Floor for V2V gap readings used in the overtake commit-distance
+        # check below (v2v_gap_usable). Reused from overtake_start_min_
+        # distance rather than a separate constant -- same physical meaning,
+        # "close enough that V2V data isn't trustworthy for this decision."
         #
-        # Gated to [overtake_start_min_distance, follow_start_distance) =
-        # [0.85, 2.0)m. The floor is a safety property, not a tuning choice:
-        # it guarantees the front_min V2V ever supplies is >= 0.85m, safely
-        # above hard_stop_front_distance (0.40), so V2V data can NEVER by
-        # itself trigger the hard-stop path below. status.emergency and
-        # left/right_clear stay exclusively LiDAR's real-time sensing --
-        # V2V only ever ADDS an obstacle_ahead detection LiDAR's curve-
-        # limited box would otherwise miss, never removes or overrides one,
-        # and never touches the acute close-range safety layers.
+        # A curve-widened ceiling used to live here too
+        # (v2v_overtake_detect_max) feeding apply_v2v_obstacle_detection(),
+        # which OR'd a V2V-derived obstacle_ahead into the LiDAR status on
+        # curves. Removed: /v2v/gap is documented elsewhere (TODO.md, "B1")
+        # as reading roughly 2x wrong on hardware, and the curve ceiling
+        # (2.0m, four times the straight-line one) made this the primary
+        # detector in curves specifically -- a false-close gap could flip
+        # obstacle_ahead on a curve with nothing physically there, dropping
+        # the car into WAIT_FOR_CLEAR (full stop) or OBSTACLE_SLOW through
+        # turns where it should have been driving at v_curve_min. Confirmed
+        # by diffing against ros2_ws_izhan, which never had this function.
+        # Re-add only once B1 is fixed and the gap number can be trusted at
+        # the range this needs (out to 2.0m, well beyond the fresh V2V-pose
+        # jitter regime the calibration was checked against).
         self.v2v_overtake_detect_min = self.overtake_start_min_distance
-        self.v2v_overtake_detect_max = self.follow_start_distance
 
         self.v2v_gap = float("nan")
         self.v2v_on_path = False
@@ -433,63 +433,6 @@ class LidarOvertakeNode(Node):
         """
         return status.right_clear and status.right_count == 0
 
-    def apply_v2v_obstacle_detection(self, status, path_context):
-        """OR a V2V-derived obstacle_ahead into status, for the curve
-        case where LiDAR's own front_stop_curve_m box (0.45m) can't see
-        ROSbot3 but /v2v/gap can. See __init__ for the full safety gate
-        rationale -- summary: only fires within [0.85, 2.0)m and only
-        when the link is alive + on_path, so it can never assert close-
-        range presence and can never trigger the hard-stop/emergency path.
-        emergency, left_clear, right_clear stay untouched -- LiDAR-only.
-
-        Range is CONTEXT-AWARE (added 2026-08-28, explicit report:
-        "QCar2 starts overtaking from quite back"). Confirmed live: on a
-        STRAIGHT, this fired obstacle_ahead=True at v2v_gap=1.89m even
-        though LiDAR's own front_stop_straight_m (1.00m) means raw LiDAR
-        would never have detected anything there -- V2V's wide detection
-        range, built specifically for the curve-blindness case, was ALSO
-        extending detection (and therefore triggering the whole overtake
-        sequence) on straights where LiDAR already sees fine on its own.
-        On a straight the ceiling now matches front_stop_straight_m, so
-        V2V no longer detects any farther out than LiDAR itself would;
-        the wide ceiling (v2v_overtake_detect_max, ~2.0m) is reserved for
-        CURVE, its original intended use case.
-        """
-        if status.obstacle_ahead:
-            return status  # LiDAR already sees it; nothing to add.
-
-        if not (self.v2v_alive and self.v2v_on_path):
-            return status
-
-        gap = self.v2v_gap
-        if not math.isfinite(gap):
-            return status
-
-        detect_max = (
-            self.v2v_overtake_detect_max
-            if path_context == "CURVE"
-            else self.front_stop_straight_m
-        )
-        if not (self.v2v_overtake_detect_min <= gap < detect_max):
-            return status
-
-        combined_front_min = (
-            gap if status.front_min < 0.0 else min(status.front_min, gap)
-        )
-
-        return type(status)(
-            obstacle_ahead=True,
-            emergency=status.emergency,
-            left_clear=status.left_clear,
-            right_clear=status.right_clear,
-            front_min=combined_front_min,
-            left_min=status.left_min,
-            right_min=status.right_min,
-            front_count=status.front_count,
-            left_count=status.left_count,
-            right_count=status.right_count,
-        )
-
     def scan_callback(self, msg):
         self.last_scan_time = self.get_clock().now()
 
@@ -510,7 +453,6 @@ class LidarOvertakeNode(Node):
         )
 
         status = self.force_no_overtake_zone(status)
-        status = self.apply_v2v_obstacle_detection(status, path_context)
 
         # If obstacle is too close, stop immediately.
         # Do not start an overtake when there is not enough room.
@@ -554,7 +496,7 @@ class LidarOvertakeNode(Node):
         # WAIT_FOR_CLEAR forever with dist_ok_ctr stuck at 0. V2V's own
         # obstacle-detection floor (v2v_overtake_detect_min, still 0.85)
         # keeps this safe -- gap has to be a real, trustworthy, in-range
-        # reading, same bar as apply_v2v_obstacle_detection above.
+        # reading.
         if status.obstacle_ahead:
             v2v_gap_usable = (
                 self.v2v_alive
