@@ -8,8 +8,31 @@ Pure command reference — every runnable command used on the car, no narrative.
 
 ## Connect
 
+Key-based, once installed (see below):
+
 ```bash
-ssh nvidia@192.168.0.53
+ssh qcar2
+```
+
+`~/.ssh/config` on `rosbot-server` has a `qcar2` host entry (IP
+`192.168.0.53`, user `nvidia`) using a dedicated key,
+`~/.ssh/id_ed25519_qcar2`. Everything in this file also works with the
+full `ssh nvidia@192.168.0.53` form if `qcar2` isn't set up on the
+machine you're running from.
+
+**One-time setup, from `rosbot-server`** (needs the car reachable and its
+password once — after this, no password prompts):
+
+```bash
+ssh-copy-id -i ~/.ssh/id_ed25519_qcar2.pub nvidia@192.168.0.53
+ssh qcar2 echo ok    # should connect with no password prompt
+```
+
+If `ssh-copy-id` isn't available:
+
+```bash
+cat ~/.ssh/id_ed25519_qcar2.pub | ssh nvidia@192.168.0.53 \
+  'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
 ```
 
 ## Mapping from scratch (if the track layout changes again)
