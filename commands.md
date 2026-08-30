@@ -2,6 +2,14 @@
 
 Pure command reference — every runnable command used on the car, no narrative. See `notes.md` for the why/how-it-works behind any of these (especially the safe-stop procedure — Issue 17 there explains why `qcar2_hardware` must never get `-9`).
 
+**Workspace: `~/ros2_ws_sami` is where all current work happens** — every
+command below targets it. `~/ros2_ws_izhan` is the clean, untouched
+fallback if something in `ros2_ws_sami` breaks in a way that isn't
+quickly recoverable; do not develop against it, and do not let it drift
+(TODO.md: "verified byte-different, keep it that way"). If you do need to
+fall back to it, swap `ros2_ws_sami` for `ros2_ws_izhan` in the commands
+below — everything else is identical.
+
 `.bashrc` auto-sources the workspace and `ROS_DOMAIN_ID=42` on an **interactive** login shell. Non-interactive `ssh host "command"` invocations do NOT get this — export it explicitly in those.
 
 ---
@@ -44,8 +52,8 @@ ros2 launch qcar2_nodes qcar2_cartographer_original_launch.py
 Drive the full track slowly and smoothly (teleop, remapped to `/cmd_vel_nav`), covering every corridor, ending back near the start. Save the map **before** stopping Cartographer:
 
 ```bash
-ros2 service call /write_state cartographer_ros_msgs/srv/WriteState "{filename: '/home/nvidia/ros2_ws_izhan/track_map_new.pbstream'}"
-ros2 run nav2_map_server map_saver_cli -f /home/nvidia/ros2_ws_izhan/track_map_new
+ros2 service call /write_state cartographer_ros_msgs/srv/WriteState "{filename: '/home/nvidia/ros2_ws_sami/track_map_new.pbstream'}"
+ros2 run nav2_map_server map_saver_cli -f /home/nvidia/ros2_ws_sami/track_map_new
 ```
 
 Then `Ctrl+C` Cartographer and re-launch the localization stack to use the fresh map.
@@ -74,7 +82,7 @@ python3 utils/smooth_curvature.py --input <path>_final.npy --output <path>_final
 
 ## Running the car — 5 terminals
 
-In every terminal: `ssh nvidia@192.168.0.53` then `cd ~/ros2_ws_izhan`.
+In every terminal: `ssh nvidia@192.168.0.53` then `cd ~/ros2_ws_sami`.
 
 ```bash
 # Terminal 1 — Localization (also brings up hardware/LiDAR/camera)
@@ -100,15 +108,15 @@ Check for duplicates, then trigger (Terminal 5) — commands below.
 Same 5 nodes as above, but backgrounded so they survive the SSH session closing, with output going to per-node log files. Needs `ROS_DOMAIN_ID=42` exported explicitly on each (non-interactive shells don't get `.bashrc`'s auto-source).
 
 ```bash
-ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_izhan/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_izhan && setsid nohup ros2 launch qcar2_nodes qcar2_cartographer_launch.py > /home/nvidia/qcar2_launch.log 2>&1 < /dev/null & disown"
+ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_sami/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_sami && setsid nohup ros2 launch qcar2_nodes qcar2_cartographer_launch.py > /home/nvidia/qcar2_launch.log 2>&1 < /dev/null & disown"
 
-ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_izhan/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_izhan && setsid nohup ros2 run qcar_science_night_pkg lidar_overtake --ros-args -r __node:=lidar_overtake > /home/nvidia/lidar_overtake.log 2>&1 < /dev/null & disown"
+ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_sami/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_sami && setsid nohup ros2 run qcar_science_night_pkg lidar_overtake --ros-args -r __node:=lidar_overtake > /home/nvidia/lidar_overtake.log 2>&1 < /dev/null & disown"
 
-ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_izhan/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_izhan && setsid nohup ros2 run qcar_science_night_pkg depth_emergency_node --ros-args -r __node:=depth_emergency_node > /home/nvidia/depth_emergency.log 2>&1 < /dev/null & disown"
+ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_sami/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_sami && setsid nohup ros2 run qcar_science_night_pkg depth_emergency_node --ros-args -r __node:=depth_emergency_node > /home/nvidia/depth_emergency.log 2>&1 < /dev/null & disown"
 
-ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_izhan/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_izhan && setsid nohup ros2 run qcar_science_night_pkg sound_node --ros-args -r __node:=sound_node > /home/nvidia/sound_node.log 2>&1 < /dev/null & disown"
+ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_sami/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_sami && setsid nohup ros2 run qcar_science_night_pkg sound_node --ros-args -r __node:=sound_node > /home/nvidia/sound_node.log 2>&1 < /dev/null & disown"
 
-ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_izhan/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_izhan && setsid nohup ros2 run qcar_science_night_pkg path_mpc --ros-args -r __node:=path_mpc > /home/nvidia/path_mpc.log 2>&1 < /dev/null & disown"
+ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_sami/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_sami && setsid nohup ros2 run qcar_science_night_pkg path_mpc --ros-args -r __node:=path_mpc > /home/nvidia/path_mpc.log 2>&1 < /dev/null & disown"
 ```
 
 Verify: wait for `path_mpc.log` to show `Localization stable. MPC enabled.` before triggering `/motion_enable`.
@@ -156,16 +164,16 @@ Most tuning work is "change one value, redeploy, retest" — restarting the whol
 ```bash
 # 1. Sync just the changed file
 scp src/qcar_science_night_pkg/qcar_science_night_pkg/lidar_overtake_node.py \
-    nvidia@192.168.0.53:~/ros2_ws_izhan/src/qcar_science_night_pkg/qcar_science_night_pkg/
+    nvidia@192.168.0.53:~/ros2_ws_sami/src/qcar_science_night_pkg/qcar_science_night_pkg/
 
 # 2. Rebuild just that package (must cd into the workspace first — 8 workspace dirs exist on this machine)
-ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && cd ~/ros2_ws_izhan && colcon build --packages-select qcar_science_night_pkg"
+ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && cd ~/ros2_ws_sami && colcon build --packages-select qcar_science_night_pkg"
 
 # 3. Kill only the one node that changed (exact path pattern, not just the executable name)
 ssh nvidia@192.168.0.53 "pkill -9 -f 'qcar_science_night_pkg/lib/qcar_science_night_pkg/lidar_overtake'"
 
 # 4. Relaunch it detached (setsid+nohup survives the SSH session closing; output goes to a log file)
-ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_izhan/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_izhan && setsid nohup ros2 run qcar_science_night_pkg lidar_overtake --ros-args -r __node:=lidar_overtake > /home/nvidia/lidar_overtake.log 2>&1 < /dev/null & disown"
+ssh nvidia@192.168.0.53 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_sami/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_sami && setsid nohup ros2 run qcar_science_night_pkg lidar_overtake --ros-args -r __node:=lidar_overtake > /home/nvidia/lidar_overtake.log 2>&1 < /dev/null & disown"
 
 # 5. Verify — no duplicates, log looks clean
 ssh nvidia@192.168.0.53 "ps aux | grep -E 'lidar_overtake|depth_emergency|path_mpc |sound_node' | grep -v grep"
