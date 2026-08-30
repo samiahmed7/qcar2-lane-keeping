@@ -379,7 +379,28 @@ class LidarOvertakeNode(Node):
 
         front_min < 0 is the analyzer's "nothing detected" sentinel, not a
         distance -- must not be read as "very close."
+
+        Skipped entirely in a curve (self.allow_overtake False, live-
+        confirmed 2026-08-28): this proactive ramp is meant for a real
+        vehicle/obstacle ahead on a straight, but the raw front box also
+        reads the track's own wall geometry as "close" on tight curves --
+        observed front_min ~0.2-0.5m on a curve that was already safe and
+        already correctly handled by the curve-aware front_stop_curve_m/
+        hard_stop_front_distance thresholds below. Those stay fully active;
+        only this newer, curve-blind ramp is skipped.
+
+        Re-lost and re-found 2026-08-30: this guard was silently dropped at
+        some point after 2026-08-28 (diffing ros2_ws_sami against the
+        untouched ros2_ws_izhan found it missing), which reopened exactly
+        this failure -- live log during a genuinely reported "slow on
+        curves" session showed context=CURVE, front intermittently jumping
+        to 0.86-1.29m with real front_count hits and speed_cap collapsing to
+        0.21-0.51 each time, with v2v_alive=False throughout confirming this
+        was NOT the separate V2V-obstacle-detection issue fixed earlier the
+        same day. Restored verbatim from ros2_ws_izhan.
         """
+        if not self.allow_overtake:
+            return -1.0
         if front_min < 0.0 or front_min >= self.follow_start_distance:
             return -1.0
         if front_min <= self.overtake_start_min_distance:
