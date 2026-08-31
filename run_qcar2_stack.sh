@@ -207,12 +207,22 @@ launch_stack() {
 
     echo "[$(ts)] launching dashboard ..."
     setsid nohup python3 v2v_dashboard.py --role qcar2 --peer-host 192.168.0.100 \
-        --trajectory ~/ros2_ws_izhan/track_run_cartographer_final.npy \
+        --trajectory ~/ros2_ws_sami/track_run_cartographer_final_leftshift.npy \
         > "$LOGDIR/dashboard.log" 2>&1 < /dev/null &
     disown; PIDS[dashboard]=$!
 
     echo "[$(ts)] launching path_mpc ..."
-    setsid nohup ros2 run qcar_science_night_pkg path_mpc --ros-args -r __node:=path_mpc \
+    # PYTHONUNBUFFERED=1 (found 2026-08-31): without it, Python fully
+    # buffers stdout once it's redirected to a file instead of a TTY, so
+    # "Localization stable. MPC enabled." can sit in an internal buffer
+    # indefinitely instead of reaching path_mpc.log -- wait_for_mpc_ready
+    # and do_resume's readiness grep both watch that exact line, so a
+    # slow/quiet cycle (nothing else logged yet) can make them time out
+    # or permanently refuse 'r' even though path_mpc is actually healthy.
+    # This bit hardest after do_relaunch(), which deliberately keeps
+    # path_mpc alive across a relaunch (see its own comment) rather than
+    # restarting it fresh.
+    PYTHONUNBUFFERED=1 setsid nohup ros2 run qcar_science_night_pkg path_mpc --ros-args -r __node:=path_mpc \
         > "$LOGDIR/path_mpc.log" 2>&1 < /dev/null &
     disown; PIDS[path_mpc]=$!
 

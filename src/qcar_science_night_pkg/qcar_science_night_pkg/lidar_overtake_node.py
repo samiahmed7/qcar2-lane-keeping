@@ -50,7 +50,7 @@ class LidarOvertakeNode(Node):
         # desk/cabinet near the loop-seam section of the track) sits at
         # front=1.30-1.69m, which the original 1.10m threshold safely
         # ignored but the scaled 1.72m did not, causing spurious
-        # obstacle_ahead detections and repeated OVERTAKE_LEFT triggers
+        # obstacle_ahead detections and repeated LC_LEFT triggers
         # right at the already-fragile loop-seam transition. Physically
         # unnecessary anyway: real stopping distance from v_max=0.75 is
         # only ~0.35m, so the original value already had huge margin.
@@ -108,9 +108,27 @@ class LidarOvertakeNode(Node):
         # around ITS USE for the commit decision specifically, so it can
         # only make triggering an overtake harder, never change what
         # emergency/hard_stop/V2V-detection already rely on.
-        self.overtake_commit_margin_m = 0.10   # commit floor = 0.85 + 0.10 = 0.95
+        # Trimmed 0.10 -> 0.05 (2026-08-31): the LiDAR-based approach/stop
+        # (front_stop_straight_m + braking dynamics, independent of this
+        # margin) settled the car at front_min=0.92m on a straight with
+        # ROSbot3 parked -- 3cm under the 0.95 commit floor, and since
+        # WAIT_FOR_CLEAR is a hard stop (motion=False), it could never
+        # close that last 3cm on its own. Permanent deadlock: confirmed
+        # obstacle, left lane clear, overtake_allowed=False forever.
+        # 0.85 (overtake_start_min_distance) + 0.05 = 0.90 clears the
+        # observed 0.92 with headroom. The debounce (overtake_distance_
+        # confirm_required, 3 ticks) is untouched and still independently
+        # guards against a single noisy sample -- this only shrinks the
+        # extra safety margin on top of that, doesn't remove it.
+        self.overtake_commit_margin_m = 0.05   # commit floor = 0.85 + 0.05 = 0.90
         self.overtake_distance_confirm_required = 3
         self.overtake_distance_ok_counter = 0
+
+        # Minimum real longitudinal lead (V2V gap, physical/bumper-to-
+        # bumper) required before cutting back into ROSbot3's lane -- see
+        # compute_sufficient_lead_to_return(). Comfortably above the V2V
+        # gap's own ~20cm residual calibration error.
+        self.min_return_lead_m = 0.6
 
         # Proactive following-distance speed cap (added 2026-08-27, in
         # response to: QCar2 closed on ROSbot3 at full speed and hard-
@@ -132,7 +150,7 @@ class LidarOvertakeNode(Node):
         # NOT scaled -- applied context-blind (both curve and straight), so
         # it inherits the same wall-proximity problem as the curve values
         # above. Reverted for the same reason.
-        self.hard_stop_front_distance = 0.40
+        self.hard_stop_front_distance = 0.40  # reverted 2026-08-31 (see follow_target_gap_m in v2v_receiver_node.py -- raising this pair caused a permanent follow-cap deadlock), kept matched to v2v_receiver's follow_min_gap_m
 
         # Floor for V2V gap readings used in the overtake commit-distance
         # check below (v2v_gap_usable). Reused from overtake_start_min_
@@ -313,7 +331,7 @@ class LidarOvertakeNode(Node):
         current_state = str(decision.state)
 
         # Only announce when we have to fully stop and can't overtake at
-        # all -- not for a normal OVERTAKE_LEFT maneuver, which is the car
+        # all -- not for a normal LC_LEFT maneuver, which is the car
         # successfully avoiding the obstacle, not stopping. Both of these
         # states make path_mpc fully stop (should_stop=True): EMERGENCY_STOP
         # is the acute close-range case, WAIT_FOR_CLEAR is everything else
@@ -451,8 +469,31 @@ class LidarOvertakeNode(Node):
         machine's own right_side_confirmed_empty already performs for the
         RETURN transition -- deliberately redundant, not a bug; keeping it
         as its own named signal for visibility/logging.
+
+        Re-added a real longitudinal check on top of the above
+        (2026-08-31, found live: QCar2 was cutting back in front of
+        ROSbot3 too closely -- lateral-only clearance says nothing about
+        how much room is actually ahead). V2V gap is trustworthy again
+        now that it reports a physical, bumper-to-bumper distance rather
+        than base_link-to-base_link (see v2v_receiver_node.py's overhang
+        subtraction) -- it just wasn't when this was switched to LiDAR
+        in 2026-08-28. min_return_lead_m is set comfortably above the
+        gap's own remaining ~20cm calibration-transform error so that
+        residual noise doesn't flip the check. Falls back to the
+        lateral-only proxy when V2V isn't usable, rather than making the
+        car unable to ever return mid-overtake if the link drops.
         """
-        return status.right_clear and status.right_count == 0
+        lateral_clear = status.right_clear and status.right_count == 0
+
+        v2v_gap_usable = (
+            self.v2v_alive and self.v2v_on_path and math.isfinite(self.v2v_gap)
+        )
+        if v2v_gap_usable:
+            # gap negative means ROSbot3 is behind QCar2 (QCar2 has the
+            # lead); more negative = more lead.
+            return lateral_clear and self.v2v_gap <= -self.min_return_lead_m
+
+        return lateral_clear
 
     def scan_callback(self, msg):
         self.last_scan_time = self.get_clock().now()

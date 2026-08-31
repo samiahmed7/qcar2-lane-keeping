@@ -10,9 +10,12 @@ MPC and the LiDAR overtake node:
     /v2v/rosbot_pose     geometry_msgs/PoseStamped   (map frame)
     /v2v/predicted_path  nav_msgs/Path      predicted ROSbot poses (map frame)
     /v2v/rosbot_speed    std_msgs/Float32   [m/s]
-    /v2v/gap             std_msgs/Float32   signed along-path gap QCar ->
-                                            ROSbot [m] (positive=ahead,
-                                            negative=behind, NaN=unknown)
+    /v2v/gap             std_msgs/Float32   signed along-path PHYSICAL gap
+                                            QCar -> ROSbot [m] (bumper-to-
+                                            bumper, both vehicles' half-
+                                            lengths already subtracted;
+                                            positive=ahead, negative=behind,
+                                            NaN=unknown)
     /v2v/on_path         std_msgs/Bool      ROSbot within lane_half_width of
                                             the QCar's reference path
     /v2v/stats           std_msgs/String    1 Hz JSON diagnostics
@@ -91,6 +94,20 @@ class V2VReceiverNode(Node):
         self.declare_parameter("loop_path", True)
         self.declare_parameter("lane_half_width", 0.35)
 
+        # signed_gap_along() is base_link-to-base_link (path-projector has
+        # no concept of vehicle body size). A physical gap -- what a tape
+        # measure or LiDAR at bumper height actually reads -- is shorter by
+        # each vehicle's own half-length, since base_link sits at each
+        # chassis's geometric center on both robots (confirmed against
+        # qcar.urdf.xacro's chassis_length=0.425m and rosbot_description's
+        # 0.197m body collision box, both centered on base_link in x/y).
+        # Found 2026-08-31: a 25cm bumper-to-bumper iPhone measurement
+        # corresponded to a 47cm base_link-to-base_link gap -- the ~31cm
+        # difference is exactly qcar2_overhang_m + rosbot3_overhang_m below,
+        # not a calibration error in frame_tx/ty/tyaw.
+        self.declare_parameter("qcar2_overhang_m", 0.2125)
+        self.declare_parameter("rosbot3_overhang_m", 0.0985)
+
         # Reverse command channel (QCar -> ROSbot). Sending is what makes the
         # sequencing possible: the ROSbot's own detour feasibility check
         # cannot see a QCar closing from behind, so QCar -- the only vehicle
@@ -160,7 +177,7 @@ class V2VReceiverNode(Node):
         # debounce margin). NOTE: at target=0.5/floor=0.4, headroom is only
         # 0.1m -- half the already-flagged-tight margin from the 0.8/0.85
         # case. Watch for jitter/stop-go oscillation right at the floor.
-        self.declare_parameter("follow_target_gap_m", 0.5)       # the distance actually held behind ROSbot3
+        self.declare_parameter("follow_target_gap_m", 0.5)       # the distance actually held behind ROSbot3 -- reverted 2026-08-31: raising to 0.8 kept this at/above the track's typical real approach gap, so the proactive cap stayed permanently bound and QCar2 never built enough speed to reach the overtake decision at all (pure follow-cap deadlock, independent of lidar_overtake's own state machine)
         self.declare_parameter("follow_min_gap_m", 0.4)          # hard-stop backstop -- matches lidar_overtake's hard_stop_front_distance (0.40), a separate independent safety floor, NOT overtake_start_min_distance anymore
         self.declare_parameter("follow_gain", 0.6)               # 1/s -- how hard gap error corrects speed; higher closes faster but rings
         self.declare_parameter("follow_full_speed", 1.0)         # ceiling -- safely above any real v_max, so a large gap is a no-op rather than an artificial limit
@@ -174,6 +191,9 @@ class V2VReceiverNode(Node):
         self.frame_ty = float(gp("frame_ty"))
         self.frame_tyaw = float(gp("frame_tyaw"))
         self.lane_half_width = float(gp("lane_half_width"))
+        self.body_overhang_total = (
+            float(gp("qcar2_overhang_m")) + float(gp("rosbot3_overhang_m"))
+        )
         self.follow_target_gap = float(gp("follow_target_gap_m"))
         self.follow_min_gap = float(gp("follow_min_gap_m"))
         self.follow_gain = float(gp("follow_gain"))
@@ -757,8 +777,16 @@ class V2VReceiverNode(Node):
             on_path = bool(abs(lat) < self.lane_half_width)
             qcar_idx = self._qcar_idx()
             if qcar_idx is not None:
-                gap = float(
+                center_gap = float(
                     self.projector.signed_gap_along(qcar_idx, rosbot_idx)
+                )
+                # Shrink toward zero by both vehicles' half-lengths so this
+                # is a physical (bumper-to-bumper) gap, not center-to-center
+                # -- see qcar2_overhang_m/rosbot3_overhang_m above. Sign
+                # (who's ahead) is preserved; only magnitude changes.
+                gap = math.copysign(
+                    max(abs(center_gap) - self.body_overhang_total, 0.0),
+                    center_gap,
                 )
 
         self.last_gap = gap

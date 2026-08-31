@@ -217,6 +217,15 @@ class Dashboard(Node):
             String, "/v2v/encounter",
             lambda m: self._set("encounter", m.data), 10
         )
+        # overtake_state_machine's actual maneuver state (LK/LC_LEFT/
+        # LC_RIGHT/WAIT_FOR_CLEAR/EMERGENCY_STOP) -- separate from
+        # /v2v/encounter's kind/action, which is a predictive V2V
+        # coordination signal (yield/follow/give-way), not a readout of
+        # what QCar2 is actually doing right now.
+        self.create_subscription(
+            String, "/drive_state",
+            lambda m: self._set("drive_state", m.data), 10
+        )
         self.create_subscription(
             PoseStamped, "/v2v/rosbot_pose", self._on_rosbot_pose, 10
         )
@@ -451,6 +460,21 @@ PAGE_TEMPLATE = """<!doctype html>
     background: none; border: none; color: #8a93a1;
     font: 13px/1.4 -apple-system, sans-serif; padding: 0;
   }
+  .encounter { list-style: none; margin: 0; padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .encounter .chip {
+    background: #1c2027; border: 1px solid #262b33; border-radius: 6px;
+    padding: 4px 9px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .encounter .chip .k { color: #8a93a1; }
+  .encounter .chip.empty {
+    background: none; border: none; color: #8a93a1;
+    font: 13px/1.4 -apple-system, sans-serif; padding: 0;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 560px) { .row2 { grid-template-columns: 1fr; } }
+  .row2 .panel h2 { padding: 6px 10px; font-size: 11px; }
+  .row2 td { padding: 4px 10px; font-size: 12.5px; }
+  .row2 td.k { width: 60%; }
   table { width: 100%; border-collapse: collapse; }
   td { padding: 7px 12px; border-bottom: 1px solid #1c2027; }
   td.k { color: #8a93a1; width: 55%; }
@@ -458,6 +482,7 @@ PAGE_TEMPLATE = """<!doctype html>
   .ok { color: #4ade80; }
   .warn { color: #fbbf24; }
   .bad { color: #ff5c5c; }
+  .active { color: #38bdf8; font-weight: 700; }
   .muted { color: #8a93a1; font-weight: 400; }
 </style>
 <header>
@@ -483,10 +508,15 @@ PAGE_TEMPLATE = """<!doctype html>
       <h2>QCar 2 camera</h2>
       <img id=cam-qcar2 src="__QCAR2_CAM__">
     </div>
-    <div class=panel><h2>QCar 2 &mdash; link &amp; motion</h2>
-      <table id=link-qcar2></table></div>
-    <div class=panel><h2>QCar 2 &mdash; safety state</h2>
-      <table id=safety-qcar2></table></div>
+    <div class=row2>
+      <div class=panel><h2>QCar 2 &mdash; link &amp; motion</h2>
+        <table id=link-qcar2></table></div>
+      <div class=panel><h2>QCar 2 &mdash; safety state</h2>
+        <table id=safety-qcar2></table>
+        <h2>Encounter state</h2>
+        <div id=encounter-qcar2 class=encounter></div>
+      </div>
+    </div>
     <div class="panel nodes"><h2>QCar 2 &mdash; active ROS nodes</h2>
       <ul id=nodes-qcar2></ul></div>
   </div>
@@ -496,10 +526,12 @@ PAGE_TEMPLATE = """<!doctype html>
       <h2>ROSbot 3 camera</h2>
       <img id=cam-rosbot3 src="__ROSBOT3_CAM__">
     </div>
-    <div class=panel><h2>ROSbot 3 &mdash; link &amp; motion</h2>
-      <table id=link-rosbot3></table></div>
-    <div class=panel><h2>ROSbot 3 &mdash; safety state</h2>
-      <table id=safety-rosbot3></table></div>
+    <div class=row2>
+      <div class=panel><h2>ROSbot 3 &mdash; link &amp; motion</h2>
+        <table id=link-rosbot3></table></div>
+      <div class=panel><h2>ROSbot 3 &mdash; safety state</h2>
+        <table id=safety-rosbot3></table></div>
+    </div>
     <div class="panel nodes"><h2>ROSbot 3 &mdash; active ROS nodes</h2>
       <ul id=nodes-rosbot3></ul></div>
   </div>
@@ -528,6 +560,7 @@ const FIELDS_LINK = [
 ];
 const FIELDS_SAFETY = [
   ["alive", "Link alive"],
+  ["drive_state", "Drive state"],
   ["on_path", "On path"],
   ["blocked", "Blocked"],
   ["blocked_distance", "Blocked distance (m)"],
@@ -536,13 +569,19 @@ const FIELDS_SAFETY = [
   ["gate_holding", "Being held (gate)"],
   ["gate_hold_events", "Hold events (gate)"],
   ["gate_gated_messages", "Gated messages (gate)"],
-  ["encounter", "Encounter state"],
   ["allow_overtake", "Allow overtake (MPC)"],
   ["motion_enable", "Motion enabled"],
 ];
 
 function fmt(key, val) {
   if (val === undefined || val === null) return ["--", "muted"];
+  if (key === "drive_state") {
+    const cls = (val === "LC_LEFT" || val === "LC_RIGHT") ? "active"
+      : (val === "LK") ? "ok"
+      : (val === "WAIT_FOR_CLEAR" || val === "EMERGENCY_STOP") ? "bad"
+      : "muted";
+    return [String(val), cls];
+  }
   if (typeof val === "boolean") {
     const goodTrue = ["alive", "on_path", "motion_enable", "allow_overtake"];
     const badTrue = ["blocked", "hold_active", "gate_holding", "detour_intent"];
@@ -560,6 +599,23 @@ function render(tbl, fields, data) {
     const [text, cls] = fmt(key, data[key]);
     return `<tr><td class=k>${label}</td><td class="v ${cls}">${text}</td></tr>`;
   }).join("");
+}
+
+function renderEncounter(id, data) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const raw = data && data.encounter;
+  let obj = null;
+  if (raw) {
+    try { obj = JSON.parse(raw); } catch (e) { obj = null; }
+  }
+  if (!obj) {
+    el.innerHTML = '<span class="chip empty">-- no encounter data --</span>';
+    return;
+  }
+  el.innerHTML = Object.entries(obj).map(([k, v]) =>
+    `<span class=chip><span class=k>${k}:</span> ${v}</span>`
+  ).join("");
 }
 
 function renderNodes(id, data) {
@@ -602,6 +658,7 @@ function paint(role, data) {
   renderBadge(role, data);
   render(document.getElementById("link-" + role), FIELDS_LINK, data || {});
   render(document.getElementById("safety-" + role), FIELDS_SAFETY, data || {});
+  renderEncounter("encounter-" + role, data);
   renderNodes("nodes-" + role, data);
 }
 

@@ -18,7 +18,9 @@ v2v_receiver_node:
     frame_tyaw: -3.030697
 
     # Must match the MPC's reference trajectory so gap/on_path agree with it.
-    trajectory_file: "/home/nvidia/ros2_ws_izhan/track_run_cartographer_final.npy"
+    # 2026-08-31: switched to path_mpc_node.py's leftshift copy in
+    # ros2_ws_sami -- see the comment there for why. Keep these two in sync.
+    trajectory_file: "/home/nvidia/ros2_ws_sami/track_run_cartographer_final_leftshift.npy"
     path_spacing: 0.03          # meters between waypoints (3 cm on this path)
     loop_path: true
     lane_half_width: 0.35       # |lateral offset| below this = "in our lane"

@@ -8,6 +8,17 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from std_msgs.msg import Bool
 
+# Revertible switch (found 2026-08-31): set to False to fall back to the
+# original fixed ROI exactly. Curve-blindness deadlock: a wall angled into
+# the frame during a curve (confirmed live -- a room-divider panel at
+# min=0.44m, obs_ratio=0.70) fills enough of the fixed 30%-70% ROI to
+# latch estop=True even though LiDAR and lidar_overtake's own state
+# machine agree the actual lane is clear (obs=False, the wall is off to
+# one side of the curving path, not in it). Self-sustaining once latched:
+# required_clear_hits needs 3 consecutive clear readings, which can't
+# happen while stopped and still facing the same wall.
+CURVE_AWARE_ROI_ENABLED = True
+
 
 class DepthEmergencyNode(Node):
 
@@ -48,6 +59,24 @@ class DepthEmergencyNode(Node):
         self.last_obstacle = False
         self.last_emergency = False
 
+        # Curve-aware ROI (see CURVE_AWARE_ROI_ENABLED above). No signal
+        # for curve DIRECTION is available -- allow_overtake is just "is
+        # curvature high right now" -- so this narrows the ROI symmetrically
+        # rather than guessing a side, trading forward-look width during
+        # curves (already slower there via v_curve_min) for less exposure
+        # to whichever side an angled wall happens to be on. True (straight)
+        # until the first real reading arrives, so startup doesn't
+        # needlessly restrict before path_mpc has published anything.
+        self.allow_overtake = True
+        self.curve_roi_x_frac = (0.42, 0.58)
+        if CURVE_AWARE_ROI_ENABLED:
+            self.allow_overtake_sub = self.create_subscription(
+                Bool,
+                "/allow_overtake",
+                self.allow_overtake_callback,
+                10,
+            )
+
         self.obstacle_pub = self.create_publisher(
             Bool,
             "/depth_obstacle_ahead",
@@ -73,6 +102,9 @@ class DepthEmergencyNode(Node):
         )
 
         self.get_logger().info("QCar2 RealSense depth emergency node started")
+
+    def allow_overtake_callback(self, msg):
+        self.allow_overtake = bool(msg.data)
 
     def publish_state(self):
         obs_msg = Bool()
@@ -116,8 +148,12 @@ class DepthEmergencyNode(Node):
 
             # QCar2 forward driving ROI.
             # This ignores the very top and very bottom of the image.
-            x1 = int(w * 0.30)
-            x2 = int(w * 0.70)
+            if CURVE_AWARE_ROI_ENABLED and not self.allow_overtake:
+                x_frac_lo, x_frac_hi = self.curve_roi_x_frac
+            else:
+                x_frac_lo, x_frac_hi = 0.30, 0.70
+            x1 = int(w * x_frac_lo)
+            x2 = int(w * x_frac_hi)
 
             y1 = int(h * 0.35)
             y2 = int(h * 0.80)
@@ -217,6 +253,7 @@ class DepthEmergencyNode(Node):
 
             self.get_logger().info(
                 f"ROI x={x1}:{x2}, y={y1}:{y2}, "
+                f"curve_narrowed={CURVE_AWARE_ROI_ENABLED and not self.allow_overtake}, "
                 f"valid_ratio={valid_ratio:.2f}, "
                 f"min={min_depth:.2f}m, "
                 f"p10={p10_depth:.2f}m, "

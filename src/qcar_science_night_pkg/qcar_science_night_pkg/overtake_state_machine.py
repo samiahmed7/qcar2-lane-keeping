@@ -2,10 +2,13 @@ from qcar_science_night_pkg.overtake_types import OvertakeDecision
 
 
 class OvertakeStateMachine:
-    DRIVE = "DRIVE"
+    # IDEAM Eqs. 31-33 naming (D3): LK=lane-keeping, LC=lane-changing.
+    # No LP (lane-probing) yet -- that's D2, not built. WAIT/ESTOP have no
+    # paper analog and keep their own names.
+    LK = "LK"
     WAIT = "WAIT_FOR_CLEAR"
-    OVERTAKE = "OVERTAKE_LEFT"
-    RETURN = "RETURN_RIGHT"
+    LC_LEFT = "LC_LEFT"
+    LC_RIGHT = "LC_RIGHT"
     ESTOP = "EMERGENCY_STOP"
 
     def __init__(
@@ -18,7 +21,7 @@ class OvertakeStateMachine:
         return_confirm_required=30,
         min_overtake_steps=30,
     ):
-        self.state = self.DRIVE
+        self.state = self.LK
         self.overtake_offset = float(overtake_offset)
 
         self.obstacle_confirm_required = obstacle_confirm_required
@@ -35,7 +38,7 @@ class OvertakeStateMachine:
         self.return_counter = 0
         self.overtake_counter = 0
 
-        # True when RETURN was entered by aborting a blocked overtake rather
+        # True when LC_RIGHT was entered by aborting a blocked overtake rather
         # than by completing one. Purely for observability -- a normal
         # completion and an abort otherwise look identical in the logs, and
         # telling them apart matters when diagnosing overtake behavior.
@@ -68,7 +71,7 @@ class OvertakeStateMachine:
             self.right_clear_counter = 0
 
     def start_overtake(self):
-        self.state = self.OVERTAKE
+        self.state = self.LC_LEFT
         self.overtake_counter = 0
         self.return_counter = 0
         return OvertakeDecision(self.state, self.overtake_offset, True)
@@ -95,7 +98,7 @@ class OvertakeStateMachine:
             self.overtake_counter = 0
             return OvertakeDecision(self.state, 999.0, False)
 
-        if self.state == self.DRIVE:
+        if self.state == self.LK:
             if not confirmed_obstacle:
                 return OvertakeDecision(self.state, 0.0, True)
 
@@ -123,7 +126,7 @@ class OvertakeStateMachine:
 
         if self.state == self.WAIT:
             if not confirmed_obstacle:
-                self.state = self.DRIVE
+                self.state = self.LK
                 self.reset_counters()
                 return OvertakeDecision(self.state, 0.0, True)
 
@@ -147,7 +150,7 @@ class OvertakeStateMachine:
 
             return OvertakeDecision(self.state, 999.0, False)
 
-        if self.state == self.OVERTAKE:
+        if self.state == self.LC_LEFT:
             self.overtake_counter += 1
 
             # Overtake lane blocked mid-maneuver. This used to go straight to
@@ -180,13 +183,13 @@ class OvertakeStateMachine:
                     # Also deliberately NOT gated on confirmed_right_clear
                     # (the 3-tick counter used by the normal return): if this
                     # check fails we fall through to WAIT, and WAIT cannot
-                    # re-enter OVERTAKE while the left lane is still blocked
+                    # re-enter LC_LEFT while the left lane is still blocked
                     # (`can_avoid` requires left_clear), so a counter that
                     # needs several ticks to build would trap the car stopped
                     # -- the exact failure being fixed. right_count == 0 is
                     # already strict on its own: literally zero LiDAR returns
                     # in the side box, not a marginal distance reading.
-                    self.state = self.RETURN
+                    self.state = self.LC_RIGHT
                     self.return_counter = 0
                     self.last_return_was_abort = True
                     return OvertakeDecision(self.state, 0.0, True)
@@ -216,14 +219,14 @@ class OvertakeStateMachine:
                 and sufficient_lead_to_return
                 and self.overtake_counter >= self.min_overtake_steps
             ):
-                self.state = self.RETURN
+                self.state = self.LC_RIGHT
                 self.return_counter = 0
                 self.last_return_was_abort = False
                 return OvertakeDecision(self.state, 0.0, True)
 
             return OvertakeDecision(self.state, self.overtake_offset, True)
 
-        if self.state == self.RETURN:
+        if self.state == self.LC_RIGHT:
             # Do not jump back left from one noisy right-side point.
             # Only abort return if right lane is clearly blocked.
             if not status.right_clear and status.right_count >= 2:
@@ -237,7 +240,7 @@ class OvertakeStateMachine:
             self.return_counter += 1
 
             if self.return_counter >= self.return_confirm_required:
-                self.state = self.DRIVE
+                self.state = self.LK
                 self.return_counter = 0
                 self.overtake_counter = 0
                 self.reset_counters()
@@ -252,6 +255,6 @@ class OvertakeStateMachine:
             self.reset_counters()
             return OvertakeDecision(self.state, 999.0, False)
 
-        self.state = self.DRIVE
+        self.state = self.LK
         self.reset_counters()
         return OvertakeDecision(self.state, 0.0, True)

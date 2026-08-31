@@ -2,6 +2,7 @@
 
 import math
 import os
+import time
 import numpy as np
 import casadi as ca
 
@@ -21,7 +22,15 @@ class QCar2PathMPC(Node):
     def __init__(self):
         super().__init__("qcar2_path_mpc_node")
 
-        self.forward_trajectory_file = "/home/nvidia/ros2_ws_izhan/track_run_cartographer_final.npy"
+        # 2026-08-31: switched to a ros2_ws_sami-local copy with a smooth
+        # 12cm leftward shift over idx 445-535 (tapered, curvature-checked
+        # against the track's existing max) -- the recorded line ran QCar2
+        # too close to the room-divider wall on that curve (real near-miss:
+        # depth camera min=0.41m, obs_ratio=1.0). ros2_ws_izhan's original
+        # file is intentionally left untouched (project convention: it's
+        # the pristine fallback). Revert by pointing this back at
+        # ~/ros2_ws_izhan/track_run_cartographer_final.npy.
+        self.forward_trajectory_file = "/home/nvidia/ros2_ws_sami/track_run_cartographer_final_leftshift.npy"
         self.reverse_trajectory_file = "/home/nvidia/ros2_ws/recorded_path_reverse27.npy"
 
         self.enable_reverse = False
@@ -92,7 +101,13 @@ class QCar2PathMPC(Node):
         # repeatable failure mode, not luck. Root cause is still the
         # unfixed loop-seam yaw transient. Re-testing 0.60 (one of the
         # known-bad values, already recovered once) per explicit request.
-        self.overtake_maneuver_v = 0.60
+        # 2026-08-31: 0.60 failed to self-recover this time -- steering
+        # pinned at max_steer for ~15 consecutive cycles right as
+        # LC_RIGHT->LK transitioned, yaw_error_deg ran away from -0.4 to
+        # -30+ in ~1.2s (mpc_tracking_log.csv), leaving the car 47cm off
+        # path with a 39deg heading error, close enough to a wall to get
+        # stuck. Reverted to the last confirmed-clean value.
+        self.overtake_maneuver_v = 0.58
         self.reverse_done_distance = 0.12
 
         self.max_steer = 0.58
@@ -218,7 +233,7 @@ class QCar2PathMPC(Node):
         # assessment on /lidar_motion_safe. Both must be true to drive.
         # Defaults to False (fail-safe) until lidar_overtake reports in.
         self.lidar_motion_safe = False
-        self.drive_state = "DRIVE"
+        self.drive_state = "LK"
         self.depth_emergency = False
 
         # Proactive LiDAR following-distance cap from lidar_overtake_node —
@@ -253,6 +268,17 @@ class QCar2PathMPC(Node):
         # from -1.0 (which would produce a bogus intermediate speed).
         self.v2v_follow_speed_cap_filtered = -1.0
         self.v2v_follow_cap_alpha = 0.25
+        # Staleness watchdog (B3, found 2026-08-27 as a live crash, fixed
+        # then -- but the missing watchdog itself was left for later).
+        # Float32 has no header/stamp, so freshness is judged the same way
+        # v2v_receiver_node judges its own UDP link: arrival time on a
+        # monotonic clock. If v2v_receiver dies or the topic just stops,
+        # the callback stops firing and self.v2v_follow_speed_cap would
+        # otherwise freeze at its last value forever -- a restrictive cap
+        # frozen in place is a silent, indefinite speed limit with no
+        # sensor behind it. None means "never received one yet".
+        self.v2v_follow_speed_cap_stamp = None
+        self.v2v_follow_speed_cap_stale_sec = 1.0
 
         self.avoidance_offset = 0.0
         self.avoidance_offset_filtered = 0.0
@@ -437,7 +463,7 @@ class QCar2PathMPC(Node):
         self.closest_idx = 0
 
         self.reverse_mode = False
-        self.drive_state = "DRIVE"
+        self.drive_state = "LK"
 
         self.stop_active = False
         self.stop_start_time = None
@@ -455,6 +481,7 @@ class QCar2PathMPC(Node):
 
     def v2v_follow_speed_cap_callback(self, msg):
         self.v2v_follow_speed_cap = float(msg.data)
+        self.v2v_follow_speed_cap_stamp = time.monotonic()
 
     def drive_state_callback(self, msg):
         self.drive_state = str(msg.data)
@@ -513,7 +540,7 @@ class QCar2PathMPC(Node):
 
         self.closest_idx = 0
         self.reverse_mode = True
-        self.drive_state = "DRIVE"
+        self.drive_state = "LK"
 
         self.reset_mpc_memory()
 
@@ -580,7 +607,12 @@ class QCar2PathMPC(Node):
         callback, to match how avoidance_offset_filtered/track_error_filtered
         are done: tied to the control loop's own cadence, not the arrival
         rate of whatever is feeding it."""
-        raw = self.v2v_follow_speed_cap
+        stale = (
+            self.v2v_follow_speed_cap_stamp is None
+            or (time.monotonic() - self.v2v_follow_speed_cap_stamp)
+            > self.v2v_follow_speed_cap_stale_sec
+        )
+        raw = -1.0 if stale else self.v2v_follow_speed_cap
         if raw < 0.0:
             self.v2v_follow_speed_cap_filtered = -1.0
         elif self.v2v_follow_speed_cap_filtered < 0.0:
@@ -691,7 +723,7 @@ class QCar2PathMPC(Node):
         lane_active = (
             self.current_mean_curvature < self.lane_centering_curve_limit
             and self.lane_valid
-            and self.drive_state == "DRIVE"
+            and self.drive_state == "LK"
         )
 
         self.tracking_log.write(
@@ -903,15 +935,13 @@ class QCar2PathMPC(Node):
         ):
             return None, 0.0, True
 
-        if self.drive_state in ["OBSTACLE_SLOW", "OVERTAKE_LEFT", "RETURN_RIGHT"]:
-
-            if self.drive_state == "OBSTACLE_SLOW":
-                self.avoidance_offset_filtered = 0.0
-                self.lane_offset_filtered = 0.0
-
-                target_v = self.overtake_maneuver_v
-
-                return ref, target_v, False
+        # D3 rename: DRIVE->LK, OVERTAKE_LEFT/RETURN_RIGHT->LC_LEFT/LC_RIGHT
+        # (IDEAM Eqs. 31-33). "OBSTACLE_SLOW" used to be checked here too,
+        # but nothing in overtake_state_machine.py or lidar_overtake_node.py
+        # has ever published that value -- confirmed 2026-08-31 via a full
+        # grep of every /drive_state producer. Removed as dead code rather
+        # than renamed.
+        if self.drive_state in ["LC_LEFT", "LC_RIGHT"]:
 
             # Active avoidance
             self.was_avoiding = True
@@ -937,7 +967,7 @@ class QCar2PathMPC(Node):
 
             return ref, target_v, False
 
-        if self.drive_state == "DRIVE":
+        if self.drive_state == "LK":
 
             # Smooth return after avoidance, even if LiDAR state jumps
             # directly from OVERTAKE_LEFT to DRIVE.
@@ -1005,6 +1035,20 @@ class QCar2PathMPC(Node):
         if self.mission_done:
             self.stop()
             return
+
+        # Published here, before the depth_emergency early return below,
+        # so /allow_overtake keeps reflecting the curvature at the car's
+        # current (stationary) position even while depth-emergency-stopped
+        # -- found 2026-08-31 as a cold-start deadlock: depth_emergency_node
+        # defaults to "straight" (full-width ROI) until it gets a real
+        # reading, but if the car starts already stopped in a curve, this
+        # call never used to run (skipped by the depth_emergency return
+        # below) so it never got one, and the two nodes deadlocked each
+        # other permanently. self.closest_idx/self.trajectory are set in
+        # __init__ before the control timer ever fires, so this is safe to
+        # call unconditionally; using the last-known closest_idx while
+        # stopped is correct since the car hasn't physically moved.
+        self.publish_overtake_permission()
 
         if self.depth_emergency:
             self.stop()
@@ -1267,18 +1311,30 @@ class QCar2PathMPC(Node):
         # reference() assigns target_v = overtake_maneuver_v outright in
         # OBSTACLE_SLOW / OVERTAKE_LEFT / RETURN_RIGHT (and the DRIVE
         # return-blend), which silently threw away the caps applied above.
-        # OBSTACLE_SLOW is exactly the state QCar2 sits in while following
-        # ROSbot3, so following ran at a flat overtake_maneuver_v no matter
-        # what the gap was -- which is why it would not hold a distance
-        # (found 2026-08-27). Caps must be a real ceiling, so they are
-        # re-applied here as the last word on target_v.
+        # Caps must be a real ceiling, so they are re-applied here as the
+        # last word on target_v.
         #
         # Reverse is exempt: backing away from an obstacle must not be
         # throttled by a cap that exists to keep us off the car in front.
+        #
+        # The V2V cap is gated to LK only (found 2026-08-31, renamed with
+        # D3): applying it during LC_LEFT/LC_RIGHT too meant the gap to
+        # ROSbot3 -- who the maneuver is trying to get past -- kept pinning
+        # target_v near the leader's (often ~0) speed for the entire pass,
+        # so QCar2 never built enough speed to actually complete the
+        # overtake. This used to be gated on "OBSTACLE_SLOW", a state
+        # nothing has ever actually published (confirmed via a full grep
+        # of every /drive_state producer) -- LK is what QCar2 is actually
+        # in while following, so gating on it makes the guard real instead
+        # of a no-op. lidar_speed_cap (curve safety) is unrelated to
+        # gap-holding and stays unconditional.
         if not should_stop and not self.reverse_mode:
             if self.lidar_speed_cap >= 0.0:
                 target_v = min(target_v, self.lidar_speed_cap)
-            if self.v2v_follow_speed_cap_filtered >= 0.0:
+            if (
+                self.v2v_follow_speed_cap_filtered >= 0.0
+                and self.drive_state == "LK"
+            ):
                 target_v = min(target_v, self.v2v_follow_speed_cap_filtered)
 
         if should_stop:
@@ -1347,7 +1403,7 @@ class QCar2PathMPC(Node):
                     self.v_max,
                 )
             )
-            if self.drive_state in ["OVERTAKE_LEFT", "RETURN_RIGHT", "OBSTACLE_SLOW"]:
+            if self.drive_state in ["LC_LEFT", "LC_RIGHT"]:
                 # This is a SEPARATE hard clip on the final published v,
                 # independent of overtake_maneuver_v (which only sets the
                 # MPC's internal target_v). Was hardcoded to 0.3 -- this is
@@ -1368,7 +1424,7 @@ class QCar2PathMPC(Node):
             if (
                 not startup_active
                 and not self.reverse_mode
-                and self.drive_state in ["DRIVE", "OVERTAKE_LEFT", "RETURN_RIGHT"]
+                and self.drive_state in ["LK", "LC_LEFT", "LC_RIGHT"]
                 and target_v > 0.05
                 and v < 0.08
             ):
