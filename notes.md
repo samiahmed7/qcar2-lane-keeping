@@ -1,6 +1,6 @@
 # QCar Technical Notes — Pipeline, Nodes, and Debugging History
 
-Narrative reference: key findings, progress, and the full issues/fixes history — the how/why. `MY_README.md` is the short status log. **All runnable commands live in `commands.md`** — including the safe start/stop procedure; the reasoning behind that procedure is in Issue 17 below.
+Narrative reference: key findings, progress, and the full issues/fixes history — the how/why. `MY_README.md` is the short status log. **All runnable commands live in `README.md`** — including the safe start/stop procedure; the reasoning behind that procedure is in Issue 17 below.
 
 ---
 
@@ -136,12 +136,12 @@ Publishing `false` to `/motion_enable` mid-drive never stopped the car. Root cau
 
 **Still unresolved**: even after this fix, manually publishing `/motion_enable false` mid-drive still hasn't reliably stopped the car in testing. The reliable stop mechanism remains either `target_laps` completing naturally, or gracefully stopping `qcar2_hardware` directly (see Issue 17 — the actual motor interface, but only a catchable signal triggers its cleanup). Worth investigating further — possibly still a callback-group/QoS issue, or something else entirely.
 
-Also repeatedly found **duplicate `lidar_overtake`/`depth_emergency_node` instances** left running from earlier restarts, fighting each other. Always check for duplicates before a test (`commands.md`).
+Also repeatedly found **duplicate `lidar_overtake`/`depth_emergency_node` instances** left running from earlier restarts, fighting each other. Always check for duplicates before a test (`README.md`).
 
 ### Issue 10 — Obstacle voice announcement + no audio output
 Wanted "Obstacle detected" spoken only on a full stop, not a successful overtake. `lidar_overtake_node.py`'s sound trigger originally fired on `OVERTAKE_LEFT` too — changed to only `EMERGENCY_STOP` and `WAIT_FOR_CLEAR` (both are states where `path_mpc` fully stops; the corner-blocked case specifically lands in `WAIT_FOR_CLEAR`, not `EMERGENCY_STOP`, so both were needed).
 
-Separately, no audio came out at all even though `sound_node` logged successful playback every time. Turned out to be an ALSA mixer level issue on the Jetson (`DSPK1 Audio Channels` and `DSPK1 FIFO Threshold` were at 0%), not a code bug — fix command in `commands.md`. Doesn't persist across reboot — reapply after any power cycle.
+Separately, no audio came out at all even though `sound_node` logged successful playback every time. Turned out to be an ALSA mixer level issue on the Jetson (`DSPK1 Audio Channels` and `DSPK1 FIFO Threshold` were at 0%), not a code bug — fix command in `README.md`. Doesn't persist across reboot — reapply after any power cycle.
 
 Also regenerated `obstacle.wav` in English via `pico2wave` (already installed on the car) — original was in German, backed up as `obstacle_de_backup.wav`.
 
@@ -155,7 +155,7 @@ Closing a recorded loop precisely (needed for the closed-spline fit) is harder t
 
 ### Issue 13 — `/motion_enable true` doing nothing after a completed run
 
-After a run finishes (`target_laps` reached, or forward trajectory complete), `path_mpc_node.py` sets an internal `self.mission_done = True` latch and its `_control_loop` bails out immediately (`if self.mission_done: self.stop(); return`) — **before** it even looks at `/motion_enable`. The log message printed at that point (`"Target laps complete. Stopping. Press motion_enable to restart."`) is misleading: publishing `/motion_enable true` again does nothing while `mission_done` is set. The actual reset is a separate topic, `/mission_restart` (`commands.md`), which resets `mission_done`, `completed_laps`, and MPC state — only *then* does `/motion_enable true` actually start driving again.
+After a run finishes (`target_laps` reached, or forward trajectory complete), `path_mpc_node.py` sets an internal `self.mission_done = True` latch and its `_control_loop` bails out immediately (`if self.mission_done: self.stop(); return`) — **before** it even looks at `/motion_enable`. The log message printed at that point (`"Target laps complete. Stopping. Press motion_enable to restart."`) is misleading: publishing `/motion_enable true` again does nothing while `mission_done` is set. The actual reset is a separate topic, `/mission_restart` (`README.md`), which resets `mission_done`, `completed_laps`, and MPC state — only *then* does `/motion_enable true` actually start driving again.
 
 ### Issue 14 — Overtaking never triggering, even on a straight, even after raising `front_stop_straight_m`
 
@@ -196,9 +196,9 @@ Two things compound:
 
 but the node does **not** exit on this error — it logs it and continues into `"Starting qcar2 loop..."` anyway. So you end up with a second, fully alive `qcar2_hardware` process on the ROS graph that never actually connected to hardware — the same duplicate-node risk as Issue 9, just for the hardware node instead of the safety nodes.
 
-**Fix:** identify both PIDs (two lines instead of one), keep the older one (earlier start time = the one that actually got the GPIO), and kill only the newer duplicate's two PIDs (the `ros2 run` wrapper and the binary it spawned) directly — never `pkill -f qcar2_hardware` here, since that pattern matches both and would kill the working one too. Exact commands in `commands.md`.
+**Fix:** identify both PIDs (two lines instead of one), keep the older one (earlier start time = the one that actually got the GPIO), and kill only the newer duplicate's two PIDs (the `ros2 run` wrapper and the binary it spawned) directly — never `pkill -f qcar2_hardware` here, since that pattern matches both and would kill the working one too. Exact commands in `README.md`.
 
-**Better: avoid it entirely** — check first (`commands.md`) before ever relaunching `qcar2_hardware`.
+**Better: avoid it entirely** — check first (`README.md`) before ever relaunching `qcar2_hardware`.
 
 ### Issue 17 — `kill -9` on `qcar2_hardware` while driving does NOT stop the car (caused a spin-in-circles, then later a straight-line collision)
 
@@ -206,7 +206,7 @@ Previously documented (wrongly) as the "guaranteed hard stop." In practice, kill
 
 **Root cause**, found in `qcar2_hardware.cpp`: the only code that ever tells the physical HIL board to stop is the `~QCar2()` destructor (lines ~255-290) — it explicitly writes `0.0` to both the steering (`channel 1000`) and throttle (`channel 11000`) channels via `hil_write_other()` before calling `hil_close()`. That destructor only runs when the process shuts down through a path it can catch and unwind from — `rclcpp`'s signal handler turns `SIGINT`/`SIGTERM` into `rclcpp::shutdown()`, which makes `executor.spin()` in `main()` return, so `qcars_node` goes out of scope and its destructor runs. `SIGKILL` (`-9`) is delivered by the kernel directly to the process and can never be caught, blocked, or unwound from — the destructor simply never runs. The Quanser HIL board itself has no deadman-switch/watchdog that auto-zeros on its own (`hil_watchdog_clear()` is called once at startup, disabling/clearing it, not arming an auto-stop) — it just keeps outputting whatever speed/steering value the 15ms `speed_controller()` timer last wrote, forever, until something explicitly writes zero or the board loses power.
 
-**Fix:** use `kill -2` (`SIGINT`) on `qcar2_hardware`'s PID, never `-9`, and confirm it actually exited (PID gone from `ps`, log shows `qcar2 exit`) before treating the car as stopped. Exact commands in `commands.md`. If a graceful stop ever hangs and doesn't exit within a couple seconds, don't wait on more remote commands — cut physical power to the car immediately.
+**Fix:** use `kill -2` (`SIGINT`) on `qcar2_hardware`'s PID, never `-9`, and confirm it actually exited (PID gone from `ps`, log shows `qcar2 exit`) before treating the car as stopped. Exact commands in `README.md`. If a graceful stop ever hangs and doesn't exit within a couple seconds, don't wait on more remote commands — cut physical power to the car immediately.
 
 ### Other gotchas worth remembering
 
@@ -214,4 +214,4 @@ Previously documented (wrongly) as the "guaranteed hard stop." In practice, kill
 - **Editing files on the car via SSH does not show up in this git repo** until explicitly `scp`/`rsync`'d down — easy to forget and end up with GitLab out of sync with what's actually running.
 - **`ros2 topic pub --once`** without an active subscriber match can silently do nothing if timing is off — always verify with `ros2 topic echo` after, don't assume success from the publisher's own output alone.
 - **`cd ~/ros2_ws_izhan` is NOT required for `ros2 run`/`ros2 launch`/`ros2 topic ...`** — those resolve through the sourced environment, not the current directory. **It IS required before `colcon build`** — there are 8 separate workspace directories under `~` on this machine, several containing their own copy of `qcar_science_night_pkg`, so building from the wrong place fails with `Duplicate package names not supported`.
-- The full-reset `pkill` pattern's `qcar2_launch` doesn't match the actual script name `qcar2_cartographer_launch.py` — the parent `ros2 launch` process can survive a "full reset" unless `ros2 launch qcar2_nodes` is also in the pattern (already fixed in `commands.md`).
+- The full-reset `pkill` pattern's `qcar2_launch` doesn't match the actual script name `qcar2_cartographer_launch.py` — the parent `ros2 launch` process can survive a "full reset" unless `ros2 launch qcar2_nodes` is also in the pattern (already fixed in `README.md`).

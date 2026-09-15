@@ -7,7 +7,7 @@ repo's `memory.md`. Complements, rather than replaces, the existing docs:
   reproducible failures and their fixes. Read it before changing overtake
   or safety thresholds; several values there are hard-won and reverting
   them re-breaks documented bugs.
-- **`commands.md`** / **`MY_README.md`** / **`DEVELOPER_README.md`** —
+- **`README.md`** / **`MY_README.md`** / **`DEVELOPER_README.md`** —
   how to actually run things.
 
 ---

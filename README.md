@@ -1,603 +1,499 @@
-<<<<<<< README.md
-# Autonomous Indoor Navigation using ROS2 for Quanser QCar
+# Autonomous Indoor Navigation and V2V Overtaking on the Quanser QCar 2
 
-> **Autonomous Navigation • Mapping • Localization • Model Predictive Control • Obstacle Avoidance**
+> **Cartographer localization • Model Predictive Control • LiDAR overtaking • Depth-camera emergency stop • V2V from ROSbot 3**
 
----
+This repository contains the QCar 2 side of the V2V project, built on **ROS 2 Humble**. The car follows a recorded reference path with a Model Predictive Controller, overtakes a vehicle in its lane (the ROSbot 3) using its LiDAR, stops on its own if the depth camera sees something close, and receives the ROSbot 3's state over a V2V UDP link. A browser dashboard shows both robots' cameras, their state and a live track map.
 
-# Overview
-
-This repository contains the complete software stack for autonomous indoor navigation on the **Quanser QCar** using **ROS2 Humble**.
-
-The project was developed for indoor autonomous vehicle demonstrations and combines modern robotics algorithms with a modular ROS2 architecture to achieve reliable localization, smooth trajectory tracking, autonomous obstacle avoidance and emergency stopping.
-
-Unlike conventional waypoint-following systems, this project records a trajectory using localization, processes it into a smooth reference path and follows it using a Model Predictive Controller (MPC). During execution, the vehicle continuously monitors its surroundings using LiDAR and performs autonomous lane changes whenever obstacles are detected.
-
-The software has been designed with modularity in mind, allowing each subsystem to operate independently while communicating through standard ROS2 interfaces.
+The ROSbot 3 side lives in a separate repository ([samiahmed7/rosbot3](https://github.com/samiahmed7/rosbot3)) and has its own launcher, `run_rosbot3_stack.sh`.
 
 ---
 
-# Features
+## Contents
 
-## Localization
-
-* Cartographer SLAM mapping
-* AMCL localization
-* Extended Kalman Filter (EKF)
-* Continuous pose estimation
-* Low covariance localization
-
----
-
-## Motion Planning
-
-* Trajectory recording
-* Automatic trajectory smoothing
-* Uniform waypoint resampling
-* Curvature computation
-* Yaw generation
-* Model Predictive Control (MPC)
+1. [Quick start: `run_qcar2_stack.sh`](#quick-start-run_qcar2_stacksh)
+2. [Running together with ROSbot 3](#running-together-with-rosbot-3)
+3. [Dashboard](#dashboard)
+4. [Workspaces on the car](#workspaces-on-the-car)
+5. [Hardware and software](#hardware-and-software)
+6. [Architecture](#architecture)
+7. [Tuning switches](#tuning-switches)
+8. [Changing code on the car](#changing-code-on-the-car)
+9. [Manual operation (without the launcher)](#manual-operation-without-the-launcher)
+10. [Mapping and recording a new trajectory](#mapping-and-recording-a-new-trajectory)
+11. [Troubleshooting](#troubleshooting)
+12. [Further documentation](#further-documentation)
 
 ---
 
-## Perception
+## Quick start: `run_qcar2_stack.sh`
 
-* RPLidar A2M12 obstacle detection
-* Lane occupancy estimation
-* Front obstacle detection
-* Autonomous lane selection
-* Intel RealSense D435i emergency stop
+`run_qcar2_stack.sh` is the normal way to run the car. It starts the whole stack, waits until the MPC is ready, and then gives you a menu to start and stop driving.
 
----
-
-## Autonomous Behaviour
-
-* Autonomous trajectory following
-* Autonomous lane changing
-* Return to original lane
-* Mission completion detection
-* Emergency stopping
-* German voice notifications
-
----
-
-# Hardware
-
-| Component    | Description           |
-| ------------ | --------------------- |
-| Vehicle      | Quanser QCar          |
-| LiDAR        | RPLidar A2M12         |
-| Depth Camera | Intel RealSense D435i |
-| Compute      | NVIDIA Jetson         |
-| Sensors      | Wheel Encoders, IMU   |
-
----
-
-# Software
-
-| Software           | Version          |
-| ------------------ | ---------------- |
-| Ubuntu             | 22.04            |
-| ROS2               | Humble Hawksbill |
-| Python             | 3.10             |
-| Cartographer       | ROS2             |
-| Nav2               | Humble           |
-| AMCL               | Nav2             |
-| robot_localization | Humble           |
-| NumPy              | Latest           |
-| SciPy              | Latest           |
-| Matplotlib         | Latest           |
-
----
-
-# Repository Structure
-
-```text
-ros2_ws/
-
-├── README.md
-├── DEVELOPER_README.md
-│
-├── src/
-│   ├── qcar_science_night_pkg/
-│   │
-│   ├── launch/
-│   ├── config/
-│   ├── resource/
-│   └── qcar_science_night_pkg/
-│
-├── utils/
-├── build/
-├── install/
-└── log/
-```
-
----
-
-# Software Architecture
-
-The complete autonomous navigation pipeline is illustrated below.
-
-```text
-                      RPLidar
-                         │
-                         ▼
-                Cartographer SLAM
-                         │
-                 Occupancy Grid Map
-                         │
-                         ▼
-                      AMCL
-                         │
-                 map → base_link
-                         │
-                         ▼
-              Model Predictive Control
-                         │
-                         ▼
-                      QCar
-```
-
-Obstacle avoidance operates independently of localization.
-
-```text
-                    LaserScan
-                        │
-                        ▼
-             LiDAR Sector Analyzer
-                        │
-                        ▼
-             Obstacle Classification
-                        │
-                        ▼
-             Lane Selection Logic
-                        │
-                        ▼
-              MPC Reference Update
-                        │
-                        ▼
-                  Steering Commands
-```
-
-Emergency stopping is handled by a dedicated safety layer.
-
-```text
-               Intel RealSense D435i
-                         │
-                         ▼
-                Depth Emergency Node
-                         │
-                         ▼
-                Emergency Stop Signal
-                         │
-                         ▼
-                   Vehicle Controller
-```
-
----
-
-# Coordinate Frames
-
-The system follows the standard ROS TF hierarchy.
-
-```text
-map
- │
- └── odom
-      │
-      └── base_link
-            │
-            ├── base_scan
-            ├── lidar
-            ├── camera_link
-            └── wheel frames
-```
-
-Frame descriptions
-
-| Frame       | Description               |
-| ----------- | ------------------------- |
-| map         | Global reference frame    |
-| odom        | Continuous odometry frame |
-| base_link   | Vehicle body frame        |
-| base_scan   | LiDAR frame               |
-| camera_link | RealSense frame           |
-
----
-
-# ROS2 Nodes
-
-The autonomous system is composed of multiple ROS2 nodes.
-
-| Node                  | Purpose                    |
-| --------------------- | -------------------------- |
-| EKF Fusion            | Sensor fusion and odometry |
-| Cartographer          | Mapping                    |
-| Map Server            | Map publication            |
-| AMCL                  | Localization               |
-| Robot State Publisher | TF publication             |
-| MPC Controller        | Path following             |
-| LiDAR Sector Analyzer | Obstacle detection         |
-| Depth Emergency Node  | Emergency stopping         |
-| Trajectory Recorder   | Path recording             |
-| Path Processor        | Trajectory smoothing       |
-
-Each node is designed to operate independently while communicating through ROS2 topics and services.
-
----
-
-# Typical Workflow
-
-The recommended workflow for operating the system is:
-
-```text
-Create Map
-      │
-      ▼
-Save Map
-      │
-      ▼
-Start EKF
-      │
-      ▼
-Start AMCL
-      │
-      ▼
-Set Initial Pose
-      │
-      ▼
-Verify Localization
-      │
-      ▼
-Launch MPC
-      │
-      ▼
-Autonomous Navigation
-```
-# Installation
-
-## Clone the Repository
+### 1. Connect
 
 ```bash
-cd ~/ros2_ws/src
-git clone <repository_url>
+ssh qcar2                   # or: ssh nvidia@192.168.0.53
 ```
 
-## Build the Workspace
+`~/.ssh/config` on `rosbot-server` has a `qcar2` entry (IP `192.168.0.53`, user `nvidia`, key `~/.ssh/id_ed25519_qcar2`). One-time key setup, from `rosbot-server` (asks for the car's password once):
 
 ```bash
-cd ~/ros2_ws
-colcon build 
-source install/setup.bash
+ssh-copy-id -i ~/.ssh/id_ed25519_qcar2.pub nvidia@192.168.0.53
+ssh qcar2 echo ok           # should connect with no password prompt
 ```
 
-To automatically source the workspace on every terminal:
+If `ssh-copy-id` isn't available:
 
 ```bash
-echo "source ~/ros2_ws/install/setup.bash" >> ~/.bashrc
-source ~/.bashrc
+cat ~/.ssh/id_ed25519_qcar2.pub | ssh nvidia@192.168.0.53 \
+  'mkdir -p ~/.ssh && chmod 700 ~/.ssh && cat >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys'
+```
+
+### 2. Launch
+
+```bash
+export ROS_DOMAIN_ID=42
+~/ros2_ws_video/run_qcar2_stack.sh
+```
+
+> **Run it in your own interactive terminal.** The menu reads single keypresses, and the E-Stop has to stay one key away from your hands. Don't start it from a script or a non-interactive `ssh host "command"`: you would get a running stack with no way to stop it.
+
+The QCar 2 always uses `ROS_DOMAIN_ID=42`. `.bashrc` sets it for interactive logins; export it yourself in any other shell.
+
+### 3. Drive
+
+The car does **not** move when the stack comes up. Once the script prints `stack up. Nothing drives until you press 'r'`, use the menu:
+
+| Key | Action |
+| --- | --- |
+| `r` | **Resume**: start driving. Refused until `path_mpc` reports `Localization stable`. |
+| `e` | **E-Stop**: sends SIGINT to `qcar2_hardware` and confirms it exited. The motors are zeroed; driving is over until you relaunch. |
+| `l` | **Relaunch** hardware and localization after an E-Stop. The other nodes keep running. |
+| `s` | **Status**: which nodes are running, the last `path_mpc` line, and a duplicate check. |
+| `q` | **Quit**: full shutdown of everything the script started. |
+
+`Ctrl+C` also runs the full shutdown.
+
+**Why the E-Stop kills the hardware node:** publishing `/motion_enable false` does not reliably stop the car mid-drive (`notes.md`, Issue 9). Killing `qcar2_hardware` with `-9` doesn't stop the motors either, because the motor-zeroing code is in its destructor, which SIGKILL skips (Issue 17). Only SIGINT works. If the script warns that `qcar2_hardware` did not exit, **cut physical power to the car**.
+
+### What the launcher starts
+
+| Order | Process | Log in `~/qcar2_run_logs/` |
+| --- | --- | --- |
+| 1 | `ros2 launch qcar2_nodes qcar2_cartographer_launch.py` (hardware, IMU, LiDAR, camera, Cartographer, robot_state_publisher) | `localization.log` (previous run kept as `.prev`) |
+| 2 | `lidar_overtake`: LiDAR obstacle detection and the overtake state machine | `lidar_overtake.log` |
+| 3 | `depth_emergency_node`: RealSense emergency stop | `depth_emergency.log` |
+| 4 | `sound_node`: audio notifications | `sound_node.log` |
+| 5 | `v2v_receiver`: V2V link from ROSbot 3 (params: `config/v2v_params.yaml`) | `v2v_receiver.log` |
+| 6 | `v2v_dashboard.py --role qcar2`: browser dashboard | `dashboard.log` |
+| 7 | `path_mpc`: MPC path follower (started with `PYTHONUNBUFFERED=1`) | `path_mpc.log` |
+
+Before starting localization, the script clears leftover processes from an earlier launch. It stops the RealSense camera gently first, because a `-9` on it can wedge the USB stream until a power cycle. At the end it checks for duplicate nodes.
+
+> `l` restarts **only** hardware and localization. After changing any node's code, press `q` and run the script again. See [Changing code on the car](#changing-code-on-the-car).
+
+---
+
+## Running together with ROSbot 3
+
+Use two terminals and **start ROSbot 3 first**, because its AMCL localization takes longer to converge.
+
+```bash
+# Terminal 1 — rosbot-server (ROSbot 3, ROS_DOMAIN_ID 0)
+cd ~/rosbot3
+./run_rosbot3_stack.sh          # deactivate any Python venv first; the script refuses to run inside one
+
+# Terminal 2 — QCar 2 (ROS_DOMAIN_ID 42)
+ssh qcar2
+export ROS_DOMAIN_ID=42
+~/ros2_ws_video/run_qcar2_stack.sh
+```
+
+Both menus use the same keys (`r`, `e`, `l`, `s`, `q`). Keep both terminals in reach while the robots share the track.
+
+The two robots run on different ROS domains (0 and 42). They talk only through the V2V UDP link, not through shared ROS topics. The link is **one-way, ROSbot 3 → QCar 2**. A reverse command channel exists in `v2v_receiver_node.py`, but it's disabled while `command_ip` is empty.
+
+---
+
+## Dashboard
+
+Open **`http://192.168.0.53:8090/`** (QCar 2) or **`http://<rosbot-server>:8090/`** (ROSbot 3) in a browser on the lab network. Both instances show the same page for both robots:
+
+- Status pills for each robot
+- Both camera feeds, at equal fixed height
+- V2V link and motion tables, with the **Gap (m)** row highlighted
+- Safety state, and QCar 2's encounter state
+- Active ROS nodes on each robot
+- Live track map (reference path, QCar 2 in green, ROSbot 3 in orange)
+
+The layout fits one screen so it can be screen-recorded. Below 1100 px width it switches back to a scrolling layout.
+
+| Setting | Where | Effect |
+| --- | --- | --- |
+| `--cam-h` | CSS in `v2v_dashboard.py` | Height of both camera panes (default `38vh`) |
+| `--cam-trim` | CSS in `v2v_dashboard.py` | Pixels trimmed from each camera image (default `30px`) |
+| `--port` | command line | HTTP port (default `8090`) |
+
+**The page is generated by the running process.** After editing `v2v_dashboard.py`, restart the dashboard. A browser refresh alone won't change anything.
+
+To start the dashboard by hand, source ROS first; it needs `rclpy`:
+
+```bash
+cd ~/ros2_ws_video
+source /opt/ros/humble/setup.bash && source install/setup.bash && export ROS_DOMAIN_ID=42
+python3 v2v_dashboard.py --role qcar2 --peer-host 192.168.0.100 \
+  --trajectory ~/ros2_ws_video/track_run_cartographer_final_leftshift.npy
 ```
 
 ---
 
-# Required Dependencies
+## Workspaces on the car
 
-The following ROS2 packages are required:
+| Workspace | Use |
+| --- | --- |
+| `~/ros2_ws_video` | **Current.** The demo build this branch contains: LiDAR-only overtaking, V2V follower off. `run_qcar2_stack.sh` and `path_mpc`'s trajectory path both point here. |
+| `~/ros2_ws_sami` | Previous tuning (V2V follower on, lead check before returning to lane). Same code as commit `af5b59b`. |
+| `~/ros2_ws_izhan` | Clean fallback that is known to overtake reliably. Don't develop in it. |
 
-- Cartographer ROS
-- Navigation2
-- robot_localization
-- robot_state_publisher
-- RViz2
-- tf2
-- NumPy
-- SciPy
-- Matplotlib
+The commands in this README use `ros2_ws_video`. To use another workspace, swap the directory name; nothing else changes.
+
+The reference trajectory `track_run_cartographer_final_leftshift.npy` is kept in the workspace on the car. It isn't in this repository.
 
 ---
 
-# Mapping
+## Hardware and software
 
-A new occupancy grid map can be generated using Cartographer.
+| Component | Description |
+| --- | --- |
+| Vehicle | Quanser QCar 2 |
+| LiDAR | RPLidar A2M12 |
+| Depth camera | Intel RealSense D435i |
+| Compute | NVIDIA Jetson |
+| Sensors | Wheel encoders, IMU |
 
-Start the mapping system:
-
-```bash
-ros2 launch qcar_science_night_pkg qcar2_cartographer_original_launch.py
-```
-
-Drive the QCar through the complete environment while ensuring that all navigable areas are observed by the LiDAR. For best results:
-
-- Drive slowly and smoothly.
-- Avoid sudden steering inputs.
-- Visit all corridors and intersections.
-- Return close to the starting position before saving the map.
-
----
-
-## Saving the Map
-
-Save the Cartographer pose graph:
-
-```bash
-ros2 service call /write_state cartographer_ros_msgs/srv/WriteState \
-"{filename: '/home/nvidia/demo_map.pbstream'}"
-```
-
-Export the occupancy grid for localization:
-
-```bash
-ros2 run nav2_map_server map_saver_cli \
--f /home/nvidia/demo_map
-```
-
-The following files will be generated:
-
-```
-demo_map.pbstream
-demo_map.pgm
-demo_map.yaml
-```
+| Software | Version |
+| --- | --- |
+| Ubuntu | 20.04.6 LTS (on the Jetson) |
+| ROS 2 | Humble Hawksbill |
+| Python | 3.8.10 |
+| Localization | Cartographer (frozen `.pbstream` map) |
+| MPC solver | CasADi + IPOPT |
+| Other | Nav2 map server, NumPy, SciPy, Matplotlib |
 
 ---
 
-# Localization
+## Architecture
 
-Localization is performed using AMCL together with the Extended Kalman Filter (EKF).
+### Repository layout
 
-Launch the localization stack:
+```text
+.
+├── README.md                  this file
+├── run_qcar2_stack.sh         all-in-one launcher with Resume/E-Stop menu
+├── v2v_dashboard.py           browser dashboard (both robots)
+├── seed_cartographer.py       pose reseeding helper (currently disabled in the launcher)
+├── notes.md                   findings and the issues/fixes history (the why)
+├── memory.md                  session log
+├── utils/                     trajectory recording and path-processing scripts
+└── src/
+    ├── qcar2_nodes/           hardware drivers and launch files (Cartographer, IMU, LiDAR, camera)
+    ├── qcar2_interfaces/      message definitions
+    ├── qcar_science_night_pkg/
+    │   ├── config/            v2v_params.yaml, sounds, AMCL/SLAM configs
+    │   ├── launch/            older AMCL-based launch files
+    │   └── qcar_science_night_pkg/
+    │       ├── path_mpc_node.py            MPC path follower
+    │       ├── lidar_overtake_node.py      LiDAR sectors and overtake decisions
+    │       ├── overtake_state_machine.py   LK / LC_LEFT / LC_RIGHT / WAIT / E-STOP
+    │       ├── lidar_sector_analyzer.py    front, left, right and emergency boxes
+    │       ├── depth_emergency_node.py     depth-camera emergency stop
+    │       ├── v2v_receiver_node.py        V2V UDP receiver and gap computation
+    │       ├── v2v_common.py               shared path projection and gap math
+    │       └── sound_node.py               audio notifications
+    └── qcar_lane_pkg/         earlier camera lane-keeping work
+```
+
+### Nodes (`ros2 run qcar_science_night_pkg <name>`)
+
+| Executable | Purpose |
+| --- | --- |
+| `path_mpc` | Follows the reference path with a nonlinear MPC (kinematic bicycle model, CasADi/IPOPT). Applies the overtake lateral offset and speed limits. |
+| `lidar_overtake` | Splits the LiDAR scan into front, left, right and emergency sectors, and runs the overtake state machine. |
+| `depth_emergency_node` | Stops the car when the depth camera sees something inside its region of interest. |
+| `v2v_receiver` | Receives ROSbot 3's state over UDP. Computes the along-path gap between the two robots, bumper to bumper. |
+| `sound_node` | Plays audio for events such as detecting an obstacle. |
+| `amcl_nudge`, `lane_centering_node`, `reverse_trailer_mpc` | Older or experimental; not started by the launcher. |
+
+### Overtake state machine
+
+The state names follow the IDEAM paper's modes. The car's lateral offset is `overtake_offset` in `LC_LEFT` and 0 in every other state.
+
+| State | Meaning | Goes to | When |
+| --- | --- | --- | --- |
+| `LK` | Lane keeping | `LC_LEFT` | Obstacle confirmed, left lane clear, overtaking allowed |
+| | | `WAIT_FOR_CLEAR` | Obstacle confirmed but it can't pass (left lane blocked, curve too tight, or too close) |
+| `LC_LEFT` | In the left lane, passing | `LC_RIGHT` | Front clear, right side empty, heading stable, minimum time in the lane reached |
+| | | `LC_RIGHT` (abort) | Left lane becomes blocked while the original lane is empty |
+| | | `WAIT_FOR_CLEAR` | Left lane blocked and the original lane occupied |
+| `LC_RIGHT` | Returning to the original lane | `LK` | Return confirmed |
+| `WAIT_FOR_CLEAR` | Stopped | `LK` | Obstacle no longer confirmed |
+| | | `LC_LEFT` | Passing becomes possible |
+| `EMERGENCY_STOP` | Stopped, something is too close | `WAIT_FOR_CLEAR` | Emergency box is clear again |
+
+From **any** state, something inside the emergency box sends the car to `EMERGENCY_STOP`.
+
+### Control flow
+
+```text
+RPLidar ──▶ Cartographer (frozen map) ──▶ map → base_link ──▶ path_mpc ──▶ QCar 2 motors
+   │                                                            ▲
+   └──▶ lidar_overtake ── offset, speed cap, drive state ───────┤
+                                                                │
+RealSense D435i ──▶ depth_emergency_node ── emergency stop ─────┤
+                                                                │
+ROSbot 3 ── UDP ──▶ v2v_receiver ── gap, follow-speed cap ──────┘  (follow cap unused in the demo build)
+```
+
+---
+
+## Tuning switches
+
+These are the values that set how the demo build behaves. All are in `src/qcar_science_night_pkg/qcar_science_night_pkg/`.
+
+| Setting | File | Value | Effect |
+| --- | --- | --- | --- |
+| `REQUIRE_FRONT_DISTANCE_TO_OVERTAKE` | `lidar_overtake_node.py` | `True` | The overtake starts only while the obstacle is between the commit floor and the detection distance. |
+| `front_stop_straight_m` | `lidar_overtake_node.py` | `1.00` m | Distance on straights at which an obstacle ahead is detected. |
+| `overtake_start_min_distance` | `lidar_overtake_node.py` | `0.80` m | Commit floor (plus a 0.05 m margin). Keep it well above the 0.70 m emergency distance, or the emergency stop triggers before an overtake can start. |
+| `overtake_offset` | `lidar_overtake_node.py` | `0.45` m | Lateral offset during the pass. The left lane's middle is 0.40 m, since lanes are 0.40 m wide. Don't go below ~0.40, or the two robots get too close. |
+| `no_obstacle_confirm_required` | `lidar_overtake_node.py` | `15` | Ticks with a clear front before returning to the lane. This is the only delay before cutting back in. |
+| `V2V_FOLLOW_SPEED_CAP_ENABLED` | `path_mpc_node.py` | `False` | When `True`, ROSbot 3's speed and gap limit QCar 2's speed while following. |
+| `v_curve_min` | `path_mpc_node.py` | `0.60` m/s | Keep above **0.5625**. Below that, the MPC preview halves from 1.50 m to 0.75 m and the steering oscillates in tight curves. |
+| `CURVE_AWARE_ROI_ENABLED` | `depth_emergency_node.py` | `True` | Narrows the depth-camera region in curves so walls on the inside don't trigger stops. |
+
+The emergency stop (0.70 m on straights, 0.65 m in curves) and the hard stop (0.40 m) are independent of these switches and always active.
+
+---
+
+## Changing code on the car
+
+A running node keeps the code it started with. **Rebuilding doesn't change a running process.** After any change you have to restart the node that uses it.
+
+```bash
+# 1. Copy the changed file to the car
+scp src/qcar_science_night_pkg/qcar_science_night_pkg/lidar_overtake_node.py \
+    qcar2:~/ros2_ws_video/src/qcar_science_night_pkg/qcar_science_night_pkg/
+
+# 2. Rebuild just that package
+ssh qcar2 "source /opt/ros/humble/setup.bash && cd ~/ros2_ws_video && colcon build --packages-select qcar_science_night_pkg"
+
+# 3. Load it: in the launcher, press e, then q, then run ./run_qcar2_stack.sh again
+```
+
+To restart one node without restarting the whole stack, **first make sure the car isn't driving** (`tail -2 ~/qcar2_run_logs/path_mpc.log`). While `lidar_overtake` restarts, there is no obstacle detection.
+
+```bash
+ssh qcar2 "pkill -9 -f 'qcar_science_night_pkg/lib/qcar_science_night_pkg/lidar_overtake'"
+ssh qcar2 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_video/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_video && setsid nohup ros2 run qcar_science_night_pkg lidar_overtake --ros-args -r __node:=lidar_overtake > ~/qcar2_run_logs/lidar_overtake.log 2>&1 < /dev/null & disown"
+ssh qcar2 "ps aux | grep -E 'lidar_overtake|depth_emergency|path_mpc |sound_node' | grep -v grep"   # no duplicates
+```
+
+The same pattern works for `path_mpc`, `depth_emergency_node` and `sound_node`: swap the executable and log name. For `path_mpc`, also set `PYTHONUNBUFFERED=1` (see [Troubleshooting](#troubleshooting)).
+
+---
+
+## Manual operation (without the launcher)
+
+### Check for duplicates first
+
+```bash
+ps aux | grep -E 'qcar2_hardware|lidar_overtake|depth_emergency|path_mpc|sound_node|v2v_receiver|cartographer' | grep -v grep
+```
+
+### Start the nodes, one terminal each
+
+In every terminal: `ssh qcar2`, then `cd ~/ros2_ws_video`.
+
+```bash
+# Terminal 1 — localization (also starts hardware, LiDAR and camera)
+ros2 launch qcar2_nodes qcar2_cartographer_launch.py
+
+# Terminal 2 — LiDAR obstacle avoidance
+ros2 run qcar_science_night_pkg lidar_overtake --ros-args -r __node:=lidar_overtake
+
+# Terminal 3 — depth-camera emergency stop
+ros2 run qcar_science_night_pkg depth_emergency_node --ros-args -r __node:=depth_emergency_node
+
+# Terminal 4 — sound (optional; if it's silent, apply the audio fix below)
+ros2 run qcar_science_night_pkg sound_node --ros-args -r __node:=sound_node
+
+# Terminal 5 — V2V receiver
+ros2 run qcar_science_night_pkg v2v_receiver --ros-args \
+  --params-file install/qcar_science_night_pkg/share/qcar_science_night_pkg/config/v2v_params.yaml
+
+# Terminal 6 — MPC (wait for "Localization stable. MPC enabled.")
+PYTHONUNBUFFERED=1 ros2 run qcar_science_night_pkg path_mpc --ros-args -r __node:=path_mpc
+```
+
+### Start driving
+
+```bash
+ros2 topic pub --once /mission_restart std_msgs/msg/Bool "{data: true}"   # only if a previous run already finished
+ros2 topic pub --once /motion_enable std_msgs/msg/Bool "{data: true}"
+```
+
+A single `--once` can be lost before discovery completes. If nothing happens, publish again. The launcher sends it three times for this reason.
+
+`/mission_restart` matters after a run has finished. The MPC sets `mission_done` at the end of the run, and after that, `/motion_enable` alone does nothing.
+
+### Stop safely mid-drive
+
+```bash
+# 1. Stop qcar2_hardware gracefully — NEVER use -9 here
+ps aux | grep qcar2_hardware | grep -v grep     # get its PID
+kill -2 <PID>                                   # SIGINT
+ps aux | grep qcar2_hardware | grep -v grep     # must print nothing
+
+# 2. Only once qcar2_hardware has exited, clean up the rest (-9 is safe for these)
+pkill -9 -f 'cartographer_node|cartographer_occupancy_grid_node|qcar2_nodes/lib|path_mpc|lidar_overtake|depth_emergency_node|sound_node|v2v_receiver|teleop_twist_keyboard|dist_to_start.py|qcar2_trajectory_recorder.py|ros2 launch qcar2_nodes'
+```
+
+The LiDAR may keep spinning afterwards. Only a power cycle stops it.
+
+### Duplicate `qcar2_hardware` after a failed launch
+
+List both instances with `ps aux | grep qcar2_hardware | grep -v grep`. Keep the **older** one; it's the one holding the GPIO. Kill only the newer duplicate's two PIDs (wrapper and binary). Never use `pkill -f qcar2_hardware` here, because it matches both.
+
+```bash
+kill -9 <wrapper_PID> <binary_PID>
+```
+
+### Launch detached over non-interactive SSH
+
+Non-interactive shells don't read `.bashrc`, so source ROS and export the domain explicitly:
+
+```bash
+ssh qcar2 "source /opt/ros/humble/setup.bash && source ~/ros2_ws_video/install/setup.bash && export ROS_DOMAIN_ID=42 && cd ~/ros2_ws_video && setsid nohup ros2 launch qcar2_nodes qcar2_cartographer_launch.py > ~/qcar2_run_logs/localization.log 2>&1 < /dev/null & disown"
+```
+
+Use the same form for each node in the list above. **Keep a way to stop the car within reach.** The E-Stop menu only exists in `run_qcar2_stack.sh`.
+
+### Audio fix (ALSA levels reset on every power cycle)
+
+```bash
+amixer sset 'DSPK1 Audio Channels' 2
+amixer sset 'DSPK1 FIFO Threshold' 63
+```
+
+### Shut down the Jetson
+
+```bash
+sudo shutdown now
+```
+
+---
+
+## Mapping and recording a new trajectory
+
+### Build a new map (when the track layout changes)
+
+```bash
+ros2 launch qcar2_nodes qcar2_cartographer_original_launch.py
+```
+
+Drive the whole track slowly and smoothly with teleop (remapped to `/cmd_vel_nav`), covering every corridor and ending near the start. **Save the map before stopping Cartographer:**
+
+```bash
+ros2 service call /write_state cartographer_ros_msgs/srv/WriteState "{filename: '/home/nvidia/ros2_ws_video/track_map_new.pbstream'}"
+ros2 run nav2_map_server map_saver_cli -f /home/nvidia/ros2_ws_video/track_map_new
+```
+
+Then stop Cartographer with `Ctrl+C` and relaunch localization to use the new map.
+
+### Record and process a trajectory
+
+```bash
+# Terminal 1: localization
+ros2 launch qcar2_nodes qcar2_cartographer_launch.py
+
+# Terminal 2: record one clean closed lap (uses the map → base_link TF)
+python3 utils/qcar2_trajectory_recorder.py --ros-args -p trajectory_file:=<path>.csv
+
+# Terminal 3: live distance and direction back to the start, for closing the loop
+python3 utils/dist_to_start.py <start_x> <start_y>
+
+# Terminal 4: drive
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=cmd_vel_nav
+
+# Turn the recording into the MPC reference path (--closed for a full loop)
+python3 utils/make_final_mpc_path.py --input <path>.csv --output <path>_final.npy --closed --smoothing 0.0002
+
+# If curvature is noisy at that low smoothing, clean it separately
+python3 utils/smooth_curvature.py --input <path>_final.npy --output <path>_final_smoothed.npy --max-curvature 2.5
+```
+
+The resulting `.npy` has columns `x, y, yaw, curvature`. To use it, point `forward_trajectory_file` in `path_mpc_node.py` and `--trajectory` in `run_qcar2_stack.sh` at the new file.
+
+### Older AMCL-based localization (sanity checks only, not used for driving)
 
 ```bash
 ros2 launch qcar_science_night_pkg science_night_slam.launch.py
 ```
 
-Once the map has loaded:
-
-1. Open RViz.
-2. Select **2D Pose Estimate**.
-3. Click on the vehicle's current position on the map.
-4. Move the vehicle slightly until the localization converges.
-
-Verify localization:
+Wait for `AMCL cannot publish a pose ... Please set the initial pose...`, then set the pose:
 
 ```bash
-ros2 topic echo /amcl_pose
+ros2 topic pub --once /initialpose geometry_msgs/msg/PoseWithCovarianceStamped "{
+  header: {frame_id: 'map'},
+  pose: {
+    pose: {
+      position: {x: 0.0, y: 0.0, z: 0.0},
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+    },
+    covariance: [0.25, 0, 0, 0, 0, 0,  0, 0.25, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0,  0, 0, 0, 0, 0, 0.06]
+  }
+}"
 ```
 
-Recommended covariance values:
+Drive a short distance with some turning so it converges, then check `ros2 topic echo /amcl_pose --once`. Aim for x, y and yaw covariance below ~0.02.
 
-| Parameter | Recommended |
-|-----------|-------------|
-| x variance | < 0.02 |
-| y variance | < 0.02 |
-| yaw variance | < 0.02 |
-
-You can also verify that the localization transform is stable:
+### RViz (optional, needs X11 forwarding)
 
 ```bash
-ros2 run tf2_ros tf2_echo map base_link
+ssh -X nvidia@192.168.0.53
+cd ~/Documents/ACC_Development/isaac_ros_common
+export ROS_DOMAIN_ID=42
+./scripts/run_dev.sh /home/nvidia/Documents/ACC_Development/Development
 ```
+
+Inside the container, run `export ROS_DOMAIN_ID=42 && rviz2`. Set **Fixed Frame → map**, then **Add → By topic** and add `/map`, `/scan` and `/camera/color_image`.
 
 ---
 
-# Trajectory Recording
+## Troubleshooting
 
-Reference trajectories are recorded after localization has converged.
-
-Start the trajectory recorder:
-
-```bash
-ros2 run qcar_science_night_pkg qcar2_trajectory_recorder
-```
-
-Drive the desired route once.
-
-A CSV file containing the recorded trajectory will be generated.
-
-Example:
-
-```
-qcar_trajectory.csv
-```
+| Symptom | Cause and fix |
+| --- | --- |
+| A code or config change has no effect | The running node still has the old code. Restart it: `e`, `q` and relaunch. Rebuilding alone isn't enough. The same applies to the dashboard. |
+| `r` is refused, or "MPC did not report ready" | `path_mpc` hasn't logged `Localization stable` yet. Check `~/qcar2_run_logs/path_mpc.log`. If you start `path_mpc` by hand with output going to a file, set `PYTHONUNBUFFERED=1`, otherwise that line can sit unwritten in Python's buffer. |
+| Car doesn't move after `r` | Check that `qcar2_hardware` is running (`s`). If a run already finished, publish `/mission_restart` first. |
+| Car stops unexpectedly | `lidar_overtake.log` shows `state=WAIT_FOR_CLEAR` or `EMERGENCY_STOP` with the sector distances. Also check `depth_emergency.log`. |
+| No overtake, car waits behind the obstacle | In `lidar_overtake.log`, check `allow_raw` (the MPC blocks overtaking in tight curves), `L` (left lane clear) and `enough_dist`. |
+| Two copies of a node are running | Run the duplicate check (`s`). Kill the newer copy. For `qcar2_hardware`, follow [Duplicate `qcar2_hardware`](#duplicate-qcar2_hardware-after-a-failed-launch). |
+| Steering jerks back and forth in tight curves | `v_curve_min` has dropped below 0.5625 m/s. See [Tuning switches](#tuning-switches). |
+| Dashboard camera pane freezes briefly | The log shows `empty frame (0x0, 0 bytes)`: the camera node is publishing empty frames. If it's frequent, restart the camera (relaunch localization). |
+| Dashboard won't start by hand: `No module named 'rclpy'` / `'yaml'` | ROS isn't sourced, or a Python virtualenv is active. Source `/opt/ros/humble/setup.bash` in a shell without a venv. |
+| Localization never becomes stable | Check `localization.log`. Make sure the car starts on the mapped track. Cartographer relocalizes globally, since pose seeding is disabled. |
+| No sound | Apply the [audio fix](#audio-fix-alsa-levels-reset-on-every-power-cycle). The levels reset on every power cycle. |
 
 ---
 
-# Trajectory Processing
+## Further documentation
 
-The recorded trajectory is converted into a smooth reference path suitable for the MPC controller.
+- `notes.md`: key findings and the full issues/fixes history, including why the stop procedure works the way it does (Issues 9 and 17).
+- `memory.md`: session-by-session log of changes and hardware tests.
+- `DEVELOPER_README.md`: developer notes.
 
-Processing includes:
+## Acknowledgements
 
-- Removal of stationary points
-- Cubic B-Spline fitting
-- Uniform waypoint resampling
-- Heading computation
-- Curvature computation
-
-Generate the processed trajectory:
-
-```bash
-python3 smooth_path.py \
---input qcar_trajectory.csv \
---output recorded_path_amcl_final.npy
-```
-
-The resulting trajectory contains:
-
-```
-x
-y
-yaw
-curvature
-```
-
-This processed trajectory is used directly by the MPC controller.
-
----
-
-# Autonomous Driving
-
-**Localization only estimates the vehicle pose and does not command the vehicle to move.**
-
-After localization has successfully converged, autonomous driving is started by launching the **Model Predictive Controller (MPC)**.
-
-## Before Starting MPC
-
-Ensure that:
-
-- Hardware drivers are running.
-- EKF localization is running.
-- AMCL localization has converged.
-- The map has been loaded.
-- A reference trajectory (`.npy`) is available.
-- The transform between `map` and `base_link` is stable.
-
-Verify localization:
-
-```bash
-ros2 topic echo /amcl_pose
-```
-
-Verify the TF tree:
-
-```bash
-ros2 run tf2_ros tf2_echo map base_link
-```
-
-Once localization is stable, launch the MPC controller:
-
-```bash
-ros2 run qcar_science_night_pkg mpc_controller
-```
-
-Launching the MPC controller starts autonomous vehicle motion.
-
-During operation the controller will:
-
-1. Load the processed reference trajectory.
-2. Read the vehicle pose from AMCL.
-3. Compute steering and velocity commands using Model Predictive Control.
-4. Track the reference trajectory.
-5. Continuously monitor for obstacles.
-6. Perform autonomous lane changes when safe.
-7. Return to the original lane after overtaking.
-8. Stop immediately if an emergency condition is detected.
-9. Stop automatically once the final waypoint has been reached.
-
-> **Important:** The QCar will remain stationary until the MPC controller is started, even if localization is active.
-
----
-
-# Obstacle Avoidance
-
-Obstacle avoidance is performed using the onboard LiDAR.
-
-The system continuously monitors:
-
-- Front lane
-- Left lane
-- Right lane
-- Emergency zone
-
-Lane changes are only initiated when:
-
-- An obstacle is detected within the configured activation distance.
-- The target lane is clear.
-- The adjacent lane has been verified to be free.
-
-If no safe maneuver exists, the vehicle performs a controlled stop.
-
----
-
-# Emergency Stop
-
-An independent emergency stop system monitors the forward region using the Intel RealSense D435i.
-
-If an object suddenly enters the emergency zone:
-
-- Vehicle commands are cancelled.
-- The MPC controller is interrupted.
-- The QCar stops immediately.
-
-This safety layer operates independently of obstacle avoidance.
-
----
-
-# Demonstration Procedure
-
-The recommended startup sequence is:
-
-1. Power on the QCar.
-2. Start hardware drivers.
-3. Launch the EKF.
-4. Launch the localization stack.
-5. Set the initial pose in RViz.
-6. Wait until AMCL converges.
-7. Verify the `map → base_link` transform.
-8. Launch the MPC controller.
-9. The vehicle begins autonomous navigation.
-
----
-
-# Troubleshooting
-
-## Map does not appear
-
-```bash
-ros2 topic echo /map
-```
-
----
-
-## Localization does not converge
-
-```bash
-ros2 topic echo /amcl_pose
-```
-
-Move the vehicle slightly to provide additional LiDAR observations.
-
----
-
-## Vehicle does not move
-
-Verify:
-
-- MPC controller is running.
-- Localization has converged.
-- The processed trajectory file exists.
-- No emergency stop is active.
-
----
-
-## Unexpected Vehicle Stop
-
-Check:
-
-```bash
-ros2 topic echo /depth_emergency_stop
-```
-
-Also verify the LiDAR obstacle detection status.
-
----
-
-# Future Work
-
-Future improvements include:
-
-- Dynamic obstacle tracking
-- Velocity planning
-- Multi-obstacle overtaking
-- Automatic localization routine
-- Mission scheduler
-- Traffic sign recognition
-- Fleet coordination
-- Web-based monitoring interface
-
----
-
-# Acknowledgements
-
-This project integrates several established ROS2 frameworks, including Cartographer, Navigation2, AMCL and robot_localization, together with custom-developed software for autonomous navigation on the Quanser QCar platform.
-
+This project builds on Cartographer, Navigation2, CasADi and IPOPT, with custom software for path following, LiDAR overtaking, emergency stopping and V2V communication on the Quanser QCar 2. The overtake state names follow Shu, Zhou and Zhang, *Agile Decision-Making and Safety-Critical Motion Planning for Emergency Autonomous Vehicles*, IEEE T-ITS 26(9), 2025.
