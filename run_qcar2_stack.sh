@@ -18,12 +18,12 @@
 # actually exited, and treat driving as over until you relaunch.
 
 set -u
-# TEST WORKSPACE (ros2_ws_sami) -- carries the localization-jump fix in
+# TEST WORKSPACE (ros2_ws_video, demo build) -- carries the localization-jump fix in
 # path_mpc_node.py / path_utils.py. Map, pbstream and trajectory still come
 # from ros2_ws_izhan on purpose, so this is an identical-input comparison
 # against the known-good workspace; only the code differs. Logs are written
-# into ros2_ws_sami so izhan's logs are never clobbered.
-cd ~/ros2_ws_sami || { echo "ros2_ws_sami not found"; exit 1; }
+# into ros2_ws_video so izhan's logs are never clobbered.
+cd ~/ros2_ws_video || { echo "ros2_ws_video not found"; exit 1; }
 
 # .bashrc already sourced ros2_ws_izhan; source sami ON TOP so its build of
 # qcar_science_night_pkg wins the overlay. Without this the script would
@@ -32,13 +32,13 @@ cd ~/ros2_ws_sami || { echo "ros2_ws_sami not found"; exit 1; }
 # COLCON_TRACE unset, which aborts under -u. .bashrc sources izhan without
 # -u so it never hit this. Drop -u just for the source, then restore.
 set +u
-source /home/nvidia/ros2_ws_sami/install/setup.bash
+source /home/nvidia/ros2_ws_video/install/setup.bash
 set -u
-echo "workspace: ros2_ws_sami (localization-jump fix active)"
+echo "workspace: ros2_ws_video (localization-jump fix active)"
 
 LOGDIR=~/qcar2_run_logs
-POSE_FILE=/home/nvidia/ros2_ws_sami/last_known_pose.txt
-SEED_FILE=/home/nvidia/ros2_ws_sami/last_known_pose.seed
+POSE_FILE=/home/nvidia/ros2_ws_video/last_known_pose.txt
+SEED_FILE=/home/nvidia/ros2_ws_video/last_known_pose.seed
 mkdir -p "$LOGDIR"
 ts() { date +%H:%M:%S; }
 
@@ -207,7 +207,7 @@ launch_stack() {
 
     echo "[$(ts)] launching dashboard ..."
     setsid nohup python3 v2v_dashboard.py --role qcar2 --peer-host 192.168.0.100 \
-        --trajectory ~/ros2_ws_sami/track_run_cartographer_final_leftshift.npy \
+        --trajectory ~/ros2_ws_video/track_run_cartographer_final_leftshift.npy \
         > "$LOGDIR/dashboard.log" 2>&1 < /dev/null &
     disown; PIDS[dashboard]=$!
 

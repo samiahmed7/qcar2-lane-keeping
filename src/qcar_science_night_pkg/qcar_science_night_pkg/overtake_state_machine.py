@@ -76,7 +76,7 @@ class OvertakeStateMachine:
         self.return_counter = 0
         return OvertakeDecision(self.state, self.overtake_offset, True)
 
-    def update(self, status, overtake_allowed, yaw_stable=True, sufficient_lead_to_return=True):
+    def update(self, status, overtake_allowed, yaw_stable=True):
         self.update_counters(status)
 
         confirmed_obstacle = (
@@ -174,7 +174,7 @@ class OvertakeStateMachine:
                     # Abort the pass and pull back into the lane we came from.
                     #
                     # Deliberately NOT gated on min_overtake_steps or
-                    # sufficient_lead_to_return, unlike the normal completion
+                    # the normal completion's return gates, unlike the completion
                     # below. This is an escape from a blocked lane, not a
                     # finished overtake -- requiring "am I far enough ahead of
                     # ROSbot3" would be backwards, since we are aborting
@@ -204,19 +204,15 @@ class OvertakeStateMachine:
                 and status.right_count == 0
             )
 
-            # confirmed_no_obstacle only means ROSbot3 fell out of the FRONT
-            # sensor -- true the instant it's behind QCar2, regardless of
-            # how much actual lead QCar2 has. Without sufficient_lead_to_
-            # return, that let the car snap straight to offset=0.0 (full
-            # cut-in) the moment it lost sight of ROSbot3, sometimes
-            # merging back inside ROSbot3's own braking range. Found
-            # 2026-08-28, fixed using V2V's real longitudinal gap (computed
-            # by the caller -- this class has no V2V knowledge of its own).
+            # LiDAR-only return gate (ros2_ws_video): the V2V lead check
+            # that used to sit here is removed. no_obstacle_confirm_
+            # required (15) is what now provides the post-pass delay --
+            # it is Izhan's proven LiDAR-only equivalent, do not lower
+            # it without restoring some other lead gate.
             if (
                 confirmed_no_obstacle
                 and right_side_confirmed_empty
                 and yaw_stable
-                and sufficient_lead_to_return
                 and self.overtake_counter >= self.min_overtake_steps
             ):
                 self.state = self.LC_RIGHT

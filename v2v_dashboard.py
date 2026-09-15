@@ -484,6 +484,162 @@ PAGE_TEMPLATE = """<!doctype html>
   .bad { color: #ff5c5c; }
   .active { color: #38bdf8; font-weight: 700; }
   .muted { color: #8a93a1; font-weight: 400; }
+
+  /* ---- single-viewport layout (2026-09-13) ---------------------------
+     Camera feeds and their state tables must be visible TOGETHER with no
+     scrolling, for screen-recording the dashboard.
+
+     What was wrong: .trackmap spanned the full width (grid-column 1/-1)
+     in a row ABOVE both robot columns, and .cams img was pinned to
+     aspect-ratio 4/3 at half-page width. Between them they pushed every
+     table below the fold.
+
+     Fix: page becomes exactly one viewport tall; the track map moves to
+     its own third column instead of a full-width band; the camera images
+     become height-flexible (object-fit: contain, so nothing is cropped or
+     distorted -- they letterbox into whatever height is left).
+
+     Appended AFTER the original rules deliberately, so it overrides by
+     source order and nothing above is edited. TO REVERT: delete this
+     block, nothing else. ------------------------------------------- */
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  header { padding: 7px 14px; }
+  header h1 { font-size: 15px; }
+  main {
+    flex: 1 1 auto; min-height: 0;
+    display: grid; gap: 10px; padding: 10px;
+    grid-template-columns: 1fr 1fr minmax(230px, 0.75fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .status { grid-column: 1 / -1; }
+  .pill { padding: 8px 12px; }
+  .col {
+    min-height: 0; gap: 10px;
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    align-content: stretch;
+  }
+  .cams { min-height: 0; display: flex; flex-direction: column; }
+  /* --cam-trim shortens the camera panes by this many px, handing the
+     space back to the panels below. Raise it to shrink the cameras
+     further, lower it to grow them -- it is the only number to
+     touch for camera height. */
+  :root { --cam-trim: 30px; }
+  .cams img {
+    flex: 1 1 auto; min-height: 0; width: 100%;
+    height: calc(100% - var(--cam-trim));
+    max-height: calc(100% - var(--cam-trim));
+    aspect-ratio: auto; object-fit: contain; background: #000;
+  }
+  .trackmap {
+    grid-column: 3; grid-row: 2; min-height: 0;
+    display: flex; flex-direction: column;
+  }
+  .trackmap img {
+    flex: 1 1 auto; min-height: 0; max-height: 100%; width: auto;
+    object-fit: contain;
+  }
+  .panel h2 { font-size: 11px; padding: 5px 10px; }
+  .nodes ul { max-height: 84px; overflow-y: auto; padding: 7px 10px; }
+  table { font-size: 12px; }
+  td { padding: 3px 10px; }
+
+  /* Narrow windows can't fit three columns -- fall back to the original
+     scrolling behaviour rather than clipping content off-screen. */
+  @media (max-width: 1100px) {
+    html, body { height: auto; }
+    body { display: block; overflow: auto; }
+    main { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
+    .trackmap { grid-column: 1 / -1; grid-row: auto; }
+    .cams img { aspect-ratio: 4/3; height: auto; }
+  }
+
+  /* ---- column alignment + equal camera heights (2026-09-13b) ---------
+     Two fixes:
+
+     1. The header pills were still a 2-column grid spanning all three
+        columns, so they no longer lined up with anything. Now .status
+        covers ONLY columns 1-2 (one pill per robot column) and the track
+        map owns column 3 outright, top to bottom, titled by its own <h2>.
+
+     2. Each .col was a separate nested grid, so a camera was sized by
+        whatever space ITS OWN tables left over. QCar 2's safety panel has
+        an extra "Encounter state" block that ROSbot 3's lacks, making its
+        table stack taller and its camera correspondingly shorter --
+        exactly the mismatch that was visible. display:contents dissolves
+        the wrappers so both cameras become items of the SAME parent grid
+        row, which forces them to identical heights. Same for the table
+        rows and node rows beneath them.
+
+     TO REVERT: delete this block. ----------------------------------- */
+  main { grid-template-rows: auto minmax(0, 1fr) auto auto; }
+  .status { grid-column: 1 / 3; grid-row: 1; grid-template-columns: 1fr 1fr; }
+  .trackmap { grid-column: 3; grid-row: 1 / -1; }
+
+  .col { display: contents; }
+  main > .col:nth-child(3) > .cams  { grid-column: 1; grid-row: 2; }
+  main > .col:nth-child(3) > .row2  { grid-column: 1; grid-row: 3; }
+  main > .col:nth-child(3) > .nodes { grid-column: 1; grid-row: 4; }
+  main > .col:nth-child(4) > .cams  { grid-column: 2; grid-row: 2; }
+  main > .col:nth-child(4) > .row2  { grid-column: 2; grid-row: 3; }
+  main > .col:nth-child(4) > .nodes { grid-column: 2; grid-row: 4; }
+
+  /* Narrow-window fallback has to undo the explicit placement above,
+     otherwise the items stay pinned to columns that no longer exist. */
+  @media (max-width: 1100px) {
+    .col { display: grid; }
+    main > .col > * { grid-column: auto; grid-row: auto; }
+    .status { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+    .trackmap { grid-column: 1 / -1; grid-row: auto; }
+  }
+
+  /* ---- gap highlight + anti-flicker height pinning (2026-09-13c) -----
+
+     (a) GAP ROW. render() now stamps each <tr> with data-k="<field key>",
+         so any row can be picked out by CSS. The gap row gets an amber
+         tint, accent rules and a bold label. The VALUE keeps its own
+         semantic colour (ok/warn/bad) -- the highlight marks which row to
+         look at, it must not overwrite what the row is saying.
+
+     (b) FLICKER. Reported live: the cameras kept growing and snapping
+         back. Cause chain -- the encounter block redraws between one
+         "no encounter data" chip and 9 real chips, one of which
+         ("reason") is long free text that rewraps; the link table renders
+         only the fields currently present (11 of 19 right now) and that
+         count changes. Either one changes .row2's height, which changed
+         the `auto` table row, which the `1fr` camera row absorbed.
+
+         Fix: the camera row is now a FIXED height (--cam-h) and the
+         slack row moves to the node list at the bottom. Nothing below the
+         cameras can resize them any more, whatever the data does.
+         The encounter block is additionally pinned and given a smaller
+         font so the table panel itself stops jittering too.
+
+     --cam-h is the one number for camera height. TO REVERT: delete this
+     block and drop the data-k attribute. ---------------------------- */
+  :root { --cam-h: 38vh; }
+  main { grid-template-rows: auto var(--cam-h) auto 1fr; }
+
+  .encounter {
+    height: 58px; overflow-y: auto; align-content: flex-start;
+    padding: 6px 10px; gap: 5px;
+  }
+  .encounter .chip { font-size: 10px; padding: 2px 6px; }
+  .encounter .chip.empty { font-size: 10px; }
+
+  tr[data-k="gap"] { background: rgba(255, 212, 121, 0.13); }
+  tr[data-k="gap"] td {
+    border-top: 1px solid rgba(255, 212, 121, 0.38);
+    border-bottom: 1px solid rgba(255, 212, 121, 0.38);
+    font-weight: 700;
+  }
+  tr[data-k="gap"] td.k { color: #ffd479; }
+
+  @media (max-width: 1100px) {
+    main { grid-template-rows: none; }
+    .encounter { height: auto; }
+  }
 </style>
 <header>
   <h1>V2V Dashboard</h1>
@@ -597,7 +753,7 @@ function render(tbl, fields, data) {
   tbl.innerHTML = fields.map(([key, label]) => {
     if (!(key in data)) return "";
     const [text, cls] = fmt(key, data[key]);
-    return `<tr><td class=k>${label}</td><td class="v ${cls}">${text}</td></tr>`;
+    return `<tr data-k="${key}"><td class=k>${label}</td><td class="v ${cls}">${text}</td></tr>`;
   }).join("");
 }
 

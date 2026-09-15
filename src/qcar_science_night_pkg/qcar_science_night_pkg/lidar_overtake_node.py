@@ -21,7 +21,7 @@ from qcar_science_night_pkg.lidar_debug_file_logger import LidarDebugFileLogger
 # The emergency stop (0.70 m) and hard stop (0.40 m) are independent of
 # this flag and remain fully active. See the block in scan_callback where
 # it is applied for the full rationale and for what safety is given up.
-REQUIRE_FRONT_DISTANCE_TO_OVERTAKE = False
+REQUIRE_FRONT_DISTANCE_TO_OVERTAKE = True
 
 
 class LidarOvertakeNode(Node):
@@ -145,17 +145,6 @@ class LidarOvertakeNode(Node):
         self.overtake_distance_confirm_required = 3
         self.overtake_distance_ok_counter = 0
 
-        # Minimum real longitudinal lead (V2V gap, physical/bumper-to-
-        # bumper) required before cutting back into ROSbot3's lane -- see
-        # compute_sufficient_lead_to_return(). Comfortably above the V2V
-        # gap's own ~20cm residual calibration error.
-        # Lowered 0.6 -> 0.35 (2026-09-01): 0.6 m of lead was a large part
-        # of why the return felt slow -- QCar2 had to get well clear before
-        # it was allowed back. 0.35 m still keeps a real, physical
-        # (bumper-to-bumper) lead so it does not cut in on ROSbot3's nose,
-        # which was the 2026-08-31 complaint this check was added for.
-        self.min_return_lead_m = 0.35
-
         # Proactive following-distance speed cap (added 2026-08-27, in
         # response to: QCar2 closed on ROSbot3 at full speed and hard-
         # braked right at front_stop/hard_stop, over and over, rather than
@@ -242,12 +231,22 @@ class LidarOvertakeNode(Node):
             # with insufficient lateral clearance during the swerve. NOT
             # verified against actual track/lane width -- confirm live
             # that QCar2 stays on the drivable surface at this offset.
-            overtake_offset=0.70,
-            obstacle_confirm_required=2,
+            # 0.65 -> 0.45 (2026-09-13, observed live: QCar2 rode the left
+            # white boundary line instead of the left lane's middle).
+            # lane_width is 0.40 m (rosbot_lane/trajectory_follower_node.py
+            # :84), so measured from the path centre the left lane spans
+            # 0.20-0.60 m and its middle is 0.40 m. 0.65 m sat just OUTSIDE
+            # the far boundary -- it was 1.6 lane-widths, not one. 0.45 is
+            # inside the left lane near its centre while keeping ~20 cm of
+            # body-to-body clearance past ROSbot3; 0.40 is exact lane-centre
+            # but trims that to ~15 cm. Do not go below ~0.40: clearance is
+            # offset minus (QCar2 half-width + ROSbot3 half-width) ~= 0.245 m.
+            overtake_offset=0.45,
+            obstacle_confirm_required=3,
             left_clear_confirm_required=2,
-            no_obstacle_confirm_required=5,
-            right_clear_confirm_required=3,
-            return_confirm_required=10,
+            no_obstacle_confirm_required=15,
+            right_clear_confirm_required=10,
+            return_confirm_required=30,
             # Lowered 70 -> 35 (2026-09-01, explicit report: QCar2 was
             # not returning to its original lane fast enough). This is a
             # pure mandatory dwell in LC_LEFT before the machine will even
@@ -257,7 +256,7 @@ class LidarOvertakeNode(Node):
             # separately alongside it. LC_RIGHT commands offset=0.0
             # immediately, so this counter is exactly what delays the
             # physical return.
-            min_overtake_steps=35,
+            min_overtake_steps=30,
         )
 
         self.debug_logger = LidarDebugFileLogger(
@@ -489,47 +488,6 @@ class LidarOvertakeNode(Node):
 
         return status
 
-    def compute_sufficient_lead_to_return(self, status):
-        """True if QCar2 has enough real lead over ROSbot3 to cut back
-        into its lane without entering ROSbot3's braking range.
-
-        Switched from V2V gap to LiDAR (2026-08-28, explicit request).
-        IMPORTANT LIMITATION: QCar2's LiDAR is FORWARD-facing only -- there
-        is no rear sector, so this can only measure LATERAL clearance in
-        the side box (side_x_max=0.70), not true longitudinal lead. It is
-        a proxy: "ROSbot3 no longer registers in my side sensor" is not
-        the same guarantee as "I am far enough ahead that it won't need to
-        brake," but it's the best signal actually buildable with the
-        sensors on this car. This is now largely the SAME check the state
-        machine's own right_side_confirmed_empty already performs for the
-        RETURN transition -- deliberately redundant, not a bug; keeping it
-        as its own named signal for visibility/logging.
-
-        Re-added a real longitudinal check on top of the above
-        (2026-08-31, found live: QCar2 was cutting back in front of
-        ROSbot3 too closely -- lateral-only clearance says nothing about
-        how much room is actually ahead). V2V gap is trustworthy again
-        now that it reports a physical, bumper-to-bumper distance rather
-        than base_link-to-base_link (see v2v_receiver_node.py's overhang
-        subtraction) -- it just wasn't when this was switched to LiDAR
-        in 2026-08-28. min_return_lead_m is set comfortably above the
-        gap's own remaining ~20cm calibration-transform error so that
-        residual noise doesn't flip the check. Falls back to the
-        lateral-only proxy when V2V isn't usable, rather than making the
-        car unable to ever return mid-overtake if the link drops.
-        """
-        lateral_clear = status.right_clear and status.right_count == 0
-
-        v2v_gap_usable = (
-            self.v2v_alive and self.v2v_on_path and math.isfinite(self.v2v_gap)
-        )
-        if v2v_gap_usable:
-            # gap negative means ROSbot3 is behind QCar2 (QCar2 has the
-            # lead); more negative = more lead.
-            return lateral_clear and self.v2v_gap <= -self.min_return_lead_m
-
-        return lateral_clear
-
     def scan_callback(self, msg):
         self.last_scan_time = self.get_clock().now()
 
@@ -652,13 +610,10 @@ class LidarOvertakeNode(Node):
             and self.current_path_idx < self.disable_obstacle_after_idx
         )
 
-        sufficient_lead_to_return = self.compute_sufficient_lead_to_return(status)
-
         decision = self.state_machine.update(
             status=status,
             overtake_allowed=overtake_allowed,
             yaw_stable=self.yaw_stable,
-            sufficient_lead_to_return=sufficient_lead_to_return,
         )
 
         self.publish_sound_if_needed(decision)
@@ -696,7 +651,6 @@ class LidarOvertakeNode(Node):
             f"v2v_alive={self.v2v_alive} | "
             f"v2v_on_path={self.v2v_on_path} | "
             f"v2v_gap={self.v2v_gap:.2f} | "
-            f"sufficient_lead={sufficient_lead_to_return} | "
             f"abort_return={self.state_machine.last_return_was_abort} | "
             f"dist_ok_ctr={self.overtake_distance_ok_counter} | "
             f"motion={decision.motion_enabled}",

@@ -17,6 +17,16 @@ from tf2_ros import Buffer, TransformListener, TransformException
 from qcar_science_night_pkg.path_utils import PathUtils
 
 
+# ros2_ws_video (demo build): the V2V car-following law is OFF. QCar2
+# no longer lets ROSbot3's reported speed/gap cap its own target_v --
+# speed comes from the trajectory, curvature and the LiDAR cap only.
+# The /v2v/follow_speed_cap subscription, filter and logging are all
+# left intact so the dashboard still shows live V2V telemetry; only
+# the two places that fed it into target_v are gated. Set True to
+# restore the follower.
+V2V_FOLLOW_SPEED_CAP_ENABLED = False
+
+
 class QCar2PathMPC(Node):
 
     def __init__(self):
@@ -30,7 +40,7 @@ class QCar2PathMPC(Node):
         # file is intentionally left untouched (project convention: it's
         # the pristine fallback). Revert by pointing this back at
         # ~/ros2_ws_izhan/track_run_cartographer_final.npy.
-        self.forward_trajectory_file = "/home/nvidia/ros2_ws_sami/track_run_cartographer_final_leftshift.npy"
+        self.forward_trajectory_file = "/home/nvidia/ros2_ws_video/track_run_cartographer_final_leftshift.npy"
         self.reverse_trajectory_file = "/home/nvidia/ros2_ws/recorded_path_reverse27.npy"
 
         self.enable_reverse = False
@@ -1307,7 +1317,7 @@ class QCar2PathMPC(Node):
 
         if self.lidar_speed_cap >= 0.0:
             target_v = min(target_v, self.lidar_speed_cap)
-        if self.v2v_follow_speed_cap_filtered >= 0.0:
+        if V2V_FOLLOW_SPEED_CAP_ENABLED and self.v2v_follow_speed_cap_filtered >= 0.0:
             target_v = min(target_v, self.v2v_follow_speed_cap_filtered)
 
         ref = PathUtils.build_reference(
@@ -1349,7 +1359,8 @@ class QCar2PathMPC(Node):
             if self.lidar_speed_cap >= 0.0:
                 target_v = min(target_v, self.lidar_speed_cap)
             if (
-                self.v2v_follow_speed_cap_filtered >= 0.0
+                V2V_FOLLOW_SPEED_CAP_ENABLED
+                and self.v2v_follow_speed_cap_filtered >= 0.0
                 and self.drive_state == "LK"
             ):
                 target_v = min(target_v, self.v2v_follow_speed_cap_filtered)
