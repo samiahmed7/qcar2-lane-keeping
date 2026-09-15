@@ -51,7 +51,7 @@ class QCar2PathMPC(Node):
         # from the ORIGINAL 0.60 baseline (not stacked off the prior scaled
         # values) to avoid compounding rounding drift -- overall factor is
         # 0.75/0.60=1.25, distance factor is 1.25^2=1.5625.
-        self.v_max = 0.75
+        self.v_max = 0.675  # -10% pass 2026-08-31; 0.675 -> preview step 2, unaffected by the v_curve_min issue below
         # +15% again on top of the v_max pass, isolated to v_curve_min --
         # v_curve = v_max/(1+kappa) clips to this floor across most of the
         # track (mean curvature ~0.685, floor kicks in above kappa~0.72), so
@@ -70,6 +70,17 @@ class QCar2PathMPC(Node):
         # OVERTAKE_LEFT/RETURN_RIGHT maneuver, governed by
         # overtake_maneuver_v below, not this variable -- v_curve_min was
         # already back at 0.54 when that happened).
+        # REVERTED 2026-09-01. The -10% pass set this to 0.54 and caused
+        # steering limit-cycling (delta slamming between +/-0.58, yaw_err
+        # to 16 deg, then a stall at idx 290) in the track's tightest
+        # curves. Cause: build_reference() spaces the MPC horizon by
+        # step = round(target_v*dt/spacing), whose rounding threshold is
+        # target_v = 0.5625 m/s at dt=0.08, spacing=0.03. 0.60 -> step 2
+        # (1.50 m preview); 0.54 -> step 1 (0.75 m preview). Halving the
+        # preview in a ~0.6 m-radius curve makes the controller react
+        # late, saturate, overshoot and saturate the other way. Any future
+        # reduction of this value must stay above 0.5625, or decouple the
+        # reference spacing from target_v first.
         self.v_curve_min = 0.60
 
         # Early speed reduction based on *current* tracking error, so the
@@ -79,7 +90,7 @@ class QCar2PathMPC(Node):
         # while a correction is in progress).
         self.track_error_slow_start = 0.05   # start reducing above this (m)
         self.track_error_slow_full = 0.30    # reduced to floor by this (m)
-        self.track_error_min_v = 0.23        # floor speed while correcting
+        self.track_error_min_v = 0.207       # floor speed while correcting; -10% pass 2026-08-31 (same preview step as the old 0.23)
         self.track_error_filtered = 0.0
         self.track_error_alpha = 0.15        # low-pass, matches lane/avoidance filtering
 
@@ -107,7 +118,13 @@ class QCar2PathMPC(Node):
         # -30+ in ~1.2s (mpc_tracking_log.csv), leaving the car 47cm off
         # path with a 39deg heading error, close enough to a wall to get
         # stuck. Reverted to the last confirmed-clean value.
-        self.overtake_maneuver_v = 0.58
+        # -10% pass 2026-08-31, was 0.58. Safe w.r.t. the preview issue
+        # documented at v_curve_min: build_reference() is called BEFORE
+        # apply_state_machine_reference() overwrites target_v with this
+        # value, so overtake_maneuver_v never sets the horizon spacing.
+        # Also below the 0.58 that last ran clean, which is the safe
+        # direction for the LC_RIGHT->LK steering runaway seen 2026-08-31.
+        self.overtake_maneuver_v = 0.522
         self.reverse_done_distance = 0.12
 
         self.max_steer = 0.58

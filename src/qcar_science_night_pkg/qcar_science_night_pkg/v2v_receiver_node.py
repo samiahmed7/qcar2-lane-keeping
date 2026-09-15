@@ -181,6 +181,19 @@ class V2VReceiverNode(Node):
         self.declare_parameter("follow_min_gap_m", 0.4)          # hard-stop backstop -- matches lidar_overtake's hard_stop_front_distance (0.40), a separate independent safety floor, NOT overtake_start_min_distance anymore
         self.declare_parameter("follow_gain", 0.6)               # 1/s -- how hard gap error corrects speed; higher closes faster but rings
         self.declare_parameter("follow_full_speed", 1.0)         # ceiling -- safely above any real v_max, so a large gap is a no-op rather than an artificial limit
+        # Cap on how much FASTER than ROSbot3 QCar2 may travel while
+        # following (added 2026-08-31, explicit request: match ROSbot3's
+        # speed for smooth following). The proportional term above is
+        # unbounded in the gap error, so a large gap produced a cap far
+        # above the leader's speed -- e.g. gap 1.5m with ROSbot3 at
+        # 0.20 m/s gave 0.20 + 0.6*1.0 = 0.80 m/s, four times the leader,
+        # which is a rush-then-brake approach rather than a smooth one.
+        # Limiting the EXCESS (rather than the absolute speed) keeps the
+        # law relative to the leader: QCar2 still closes a gap, just
+        # gently, and settles at the leader's own speed at the target gap.
+        # Only affects the following state -- path_mpc applies this cap
+        # solely while drive_state is LK, never during LC_LEFT/LC_RIGHT.
+        self.declare_parameter("follow_max_closing_speed", 0.15)  # m/s above the leader
 
         gp = lambda name: self.get_parameter(name).value
         self.bind_ip = str(gp("bind_ip"))
@@ -198,6 +211,7 @@ class V2VReceiverNode(Node):
         self.follow_min_gap = float(gp("follow_min_gap_m"))
         self.follow_gain = float(gp("follow_gain"))
         self.follow_full_speed = float(gp("follow_full_speed"))
+        self.follow_max_closing_speed = float(gp("follow_max_closing_speed"))
 
         # Reference path — used only for gap/on_path projection. If it fails
         # to load, pose/prediction topics still work; gap stays NaN (unknown)
@@ -644,6 +658,13 @@ class V2VReceiverNode(Node):
             leader_speed = 0.0
 
         cap = leader_speed + self.follow_gain * (gap - self.follow_target_gap)
+        # Never exceed the leader's own speed by more than
+        # follow_max_closing_speed, so following tracks ROSbot3's speed
+        # instead of rushing up and braking. Applied to the EXCESS, not the
+        # absolute value, so the law stays relative to the leader: at the
+        # target gap the cap is still exactly leader_speed, and a stopped
+        # leader still yields a near-zero cap.
+        cap = min(cap, leader_speed + self.follow_max_closing_speed)
         # Ceiling is above any real v_max, so a large gap is a no-op rather
         # than an artificial speed limit.
         return max(0.0, min(cap, self.follow_full_speed))

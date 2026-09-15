@@ -13,6 +13,16 @@ from qcar_science_night_pkg.overtake_state_machine import OvertakeStateMachine
 from qcar_science_night_pkg.overtake_types import OvertakeDecision
 from qcar_science_night_pkg.lidar_debug_file_logger import LidarDebugFileLogger
 
+# Revertible switch (2026-08-31, explicit request): when False, the front
+# distance to the obstacle no longer gates committing to an overtake --
+# overtake_start_min_distance, overtake_commit_margin_m and the
+# overtake_distance_confirm_required debounce are all bypassed for the
+# commit decision. Set back to True to restore the original behaviour.
+# The emergency stop (0.70 m) and hard stop (0.40 m) are independent of
+# this flag and remain fully active. See the block in scan_callback where
+# it is applied for the full rationale and for what safety is given up.
+REQUIRE_FRONT_DISTANCE_TO_OVERTAKE = False
+
 
 class LidarOvertakeNode(Node):
     def __init__(self):
@@ -92,7 +102,18 @@ class LidarOvertakeNode(Node):
         # exactly why overtakes were losing the race to emergency stops.
         # Reverted with front_stop_straight_m above -- must stay below it
         # with real margin (Issue 14) or overtaking deadlocks again.
-        self.overtake_start_min_distance = 0.85
+        #
+        # Lowered 0.85 -> 0.80 (2026-08-31, explicit request: the minimum
+        # front distance to start an overtake was too large). Combined with
+        # overtake_commit_margin_m=0.05 the commit floor drops 0.90 -> 0.85,
+        # widening the usable commit window against front_stop_straight_m
+        # (1.00) from 10cm to 15cm -- the car now has half again as much
+        # room in which it may legally decide to overtake. 0.80 keeps the
+        # documented 0.10 clearance above emergency_stop_straight_m (0.70);
+        # going below ~0.80 would erode that margin and re-create the
+        # emergency-stop race described above, so the emergency threshold
+        # itself would have to be revisited first.
+        self.overtake_start_min_distance = 0.80
 
         # Commit margin + debounce (added 2026-08-28): follow_target_gap_m
         # on the V2V side was just lowered to 0.8, only 0.05m below this
@@ -120,7 +141,7 @@ class LidarOvertakeNode(Node):
         # confirm_required, 3 ticks) is untouched and still independently
         # guards against a single noisy sample -- this only shrinks the
         # extra safety margin on top of that, doesn't remove it.
-        self.overtake_commit_margin_m = 0.05   # commit floor = 0.85 + 0.05 = 0.90
+        self.overtake_commit_margin_m = 0.05   # commit floor = 0.80 + 0.05 = 0.85
         self.overtake_distance_confirm_required = 3
         self.overtake_distance_ok_counter = 0
 
@@ -128,7 +149,12 @@ class LidarOvertakeNode(Node):
         # bumper) required before cutting back into ROSbot3's lane -- see
         # compute_sufficient_lead_to_return(). Comfortably above the V2V
         # gap's own ~20cm residual calibration error.
-        self.min_return_lead_m = 0.6
+        # Lowered 0.6 -> 0.35 (2026-09-01): 0.6 m of lead was a large part
+        # of why the return felt slow -- QCar2 had to get well clear before
+        # it was allowed back. 0.35 m still keeps a real, physical
+        # (bumper-to-bumper) lead so it does not cut in on ROSbot3's nose,
+        # which was the 2026-08-31 complaint this check was added for.
+        self.min_return_lead_m = 0.35
 
         # Proactive following-distance speed cap (added 2026-08-27, in
         # response to: QCar2 closed on ROSbot3 at full speed and hard-
@@ -222,7 +248,16 @@ class LidarOvertakeNode(Node):
             no_obstacle_confirm_required=5,
             right_clear_confirm_required=3,
             return_confirm_required=10,
-            min_overtake_steps=70,
+            # Lowered 70 -> 35 (2026-09-01, explicit report: QCar2 was
+            # not returning to its original lane fast enough). This is a
+            # pure mandatory dwell in LC_LEFT before the machine will even
+            # consider returning -- it gates nothing safety-related on its
+            # own, the real return conditions (obstacle gone, right side
+            # empty, yaw stable, sufficient lead) are all checked
+            # separately alongside it. LC_RIGHT commands offset=0.0
+            # immediately, so this counter is exactly what delays the
+            # physical return.
+            min_overtake_steps=35,
         )
 
         self.debug_logger = LidarDebugFileLogger(
@@ -584,6 +619,28 @@ class LidarOvertakeNode(Node):
             self.overtake_distance_ok_counter = 0
             enough_distance_to_overtake = True
             commit_check_distance = status.front_min
+
+        # Front-distance requirement for committing to an overtake, removed
+        # on explicit request 2026-08-31 (set REQUIRE_FRONT_DISTANCE_TO_
+        # OVERTAKE back to True to restore it). With this off, QCar2 may
+        # commit to a pass at ANY front distance: the commit floor
+        # (overtake_start_min_distance + overtake_commit_margin_m) and its
+        # 3-tick debounce no longer gate the decision.
+        #
+        # What still protects the front, and is deliberately NOT touched:
+        # the emergency stop (emergency_stop_straight_m, 0.70 m) and the
+        # hard stop (hard_stop_front_distance, 0.40 m) both run ahead of
+        # this in the same callback, and status.emergency is checked by the
+        # state machine before it ever considers overtaking -- so the car
+        # still cannot drive into ROSbot3. What IS given up is the
+        # guarantee that it has room to complete the manoeuvre before it
+        # starts one: it may now swerve out from close behind.
+        #
+        # The distance is still computed and logged above (commit_check_dist
+        # / dist_ok_ctr in the debug line) so the decision remains
+        # observable even though it is no longer enforced.
+        if not REQUIRE_FRONT_DISTANCE_TO_OVERTAKE:
+            enough_distance_to_overtake = True
 
         # Overtake requires:
         # 1. MPC says path is straight enough
