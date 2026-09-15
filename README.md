@@ -69,7 +69,7 @@ The car does **not** move when the stack comes up. Once the script prints `stack
 
 `Ctrl+C` also runs the full shutdown.
 
-**Why the E-Stop kills the hardware node:** publishing `/motion_enable false` does not reliably stop the car mid-drive (`notes.md`, Issue 9). Killing `qcar2_hardware` with `-9` doesn't stop the motors either, because the motor-zeroing code is in its destructor, which SIGKILL skips (Issue 17). Only SIGINT works. If the script warns that `qcar2_hardware` did not exit, **cut physical power to the car**.
+**Why the E-Stop kills the hardware node:** publishing `/motion_enable false` does not reliably stop the car mid-drive. Killing `qcar2_hardware` with `-9` doesn't stop the motors either, because the motor-zeroing code is in its destructor, which SIGKILL skips. Only SIGINT works. If the script warns that `qcar2_hardware` did not exit, **cut physical power to the car**.
 
 ### What the launcher starts
 
@@ -152,8 +152,6 @@ python3 v2v_dashboard.py --role qcar2 --peer-host 192.168.0.100 \
 ├── run_qcar2_stack.sh         all-in-one launcher with Resume/E-Stop menu
 ├── v2v_dashboard.py           browser dashboard (both robots)
 ├── seed_cartographer.py       pose reseeding helper (currently disabled in the launcher)
-├── notes.md                   findings and the issues/fixes history (the why)
-├── memory.md                  session log
 ├── utils/                     trajectory recording and path-processing scripts
 └── src/
     ├── qcar2_nodes/           hardware drivers and launch files (Cartographer, IMU, LiDAR, camera)
