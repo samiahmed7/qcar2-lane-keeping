@@ -1,27 +1,22 @@
 # Autonomous Indoor Navigation and V2V Overtaking on the Quanser QCar 2
 
-> **Cartographer localization • Model Predictive Control • LiDAR overtaking • Depth-camera emergency stop • V2V from ROSbot 3**
+> **Cartographer localization • Model Predictive Control • LiDAR overtaking • Depth-camera emergency stop • V2V communication**
 
-This repository contains the QCar 2 side of the V2V project, built on **ROS 2 Humble**. The car follows a recorded reference path with a Model Predictive Controller, overtakes a vehicle in its lane (the ROSbot 3) using its LiDAR, stops on its own if the depth camera sees something close, and receives the ROSbot 3's state over a V2V UDP link. A browser dashboard shows both robots' cameras, their state and a live track map.
-
-The ROSbot 3 side lives in a separate repository ([samiahmed7/rosbot3](https://github.com/samiahmed7/rosbot3)) and has its own launcher, `run_rosbot3_stack.sh`.
+This repository contains the QCar 2 side of the V2V project, built on **ROS 2 Humble**. The car follows a recorded reference path with a Model Predictive Controller, overtakes a vehicle in its lane using its LiDAR, stops on its own if the depth camera sees something close, and receives the other vehicle's state over a V2V UDP link. A browser dashboard shows the camera feeds, V2V and safety state, and a live track map.
 
 ---
 
 ## Contents
 
 1. [Quick start: `run_qcar2_stack.sh`](#quick-start-run_qcar2_stacksh)
-2. [Running together with ROSbot 3](#running-together-with-rosbot-3)
-3. [Dashboard](#dashboard)
-4. [Workspaces on the car](#workspaces-on-the-car)
-5. [Hardware and software](#hardware-and-software)
-6. [Architecture](#architecture)
-7. [Tuning switches](#tuning-switches)
-8. [Changing code on the car](#changing-code-on-the-car)
-9. [Manual operation (without the launcher)](#manual-operation-without-the-launcher)
-10. [Mapping and recording a new trajectory](#mapping-and-recording-a-new-trajectory)
-11. [Troubleshooting](#troubleshooting)
-12. [Further documentation](#further-documentation)
+2. [Dashboard](#dashboard)
+3. [Hardware and software](#hardware-and-software)
+4. [Architecture](#architecture)
+5. [Tuning switches](#tuning-switches)
+6. [Changing code on the car](#changing-code-on-the-car)
+7. [Manual operation (without the launcher)](#manual-operation-without-the-launcher)
+8. [Mapping and recording a new trajectory](#mapping-and-recording-a-new-trajectory)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -35,7 +30,7 @@ The ROSbot 3 side lives in a separate repository ([samiahmed7/rosbot3](https://g
 ssh qcar2                   # or: ssh nvidia@192.168.0.53
 ```
 
-`~/.ssh/config` on `rosbot-server` has a `qcar2` entry (IP `192.168.0.53`, user `nvidia`, key `~/.ssh/id_ed25519_qcar2`). One-time key setup, from `rosbot-server` (asks for the car's password once):
+`~/.ssh/config` on the lab server has a `qcar2` entry (IP `192.168.0.53`, user `nvidia`, key `~/.ssh/id_ed25519_qcar2`). One-time key setup, from the lab server (asks for the car's password once):
 
 ```bash
 ssh-copy-id -i ~/.ssh/id_ed25519_qcar2.pub nvidia@192.168.0.53
@@ -84,7 +79,7 @@ The car does **not** move when the stack comes up. Once the script prints `stack
 | 2 | `lidar_overtake`: LiDAR obstacle detection and the overtake state machine | `lidar_overtake.log` |
 | 3 | `depth_emergency_node`: RealSense emergency stop | `depth_emergency.log` |
 | 4 | `sound_node`: audio notifications | `sound_node.log` |
-| 5 | `v2v_receiver`: V2V link from ROSbot 3 (params: `config/v2v_params.yaml`) | `v2v_receiver.log` |
+| 5 | `v2v_receiver`: V2V link (params: `config/v2v_params.yaml`) | `v2v_receiver.log` |
 | 6 | `v2v_dashboard.py --role qcar2`: browser dashboard | `dashboard.log` |
 | 7 | `path_mpc`: MPC path follower (started with `PYTHONUNBUFFERED=1`) | `path_mpc.log` |
 
@@ -94,37 +89,16 @@ Before starting localization, the script clears leftover processes from an earli
 
 ---
 
-## Running together with ROSbot 3
-
-Use two terminals and **start ROSbot 3 first**, because its AMCL localization takes longer to converge.
-
-```bash
-# Terminal 1 — rosbot-server (ROSbot 3, ROS_DOMAIN_ID 0)
-cd ~/rosbot3
-./run_rosbot3_stack.sh          # deactivate any Python venv first; the script refuses to run inside one
-
-# Terminal 2 — QCar 2 (ROS_DOMAIN_ID 42)
-ssh qcar2
-export ROS_DOMAIN_ID=42
-~/ros2_ws_video/run_qcar2_stack.sh
-```
-
-Both menus use the same keys (`r`, `e`, `l`, `s`, `q`). Keep both terminals in reach while the robots share the track.
-
-The two robots run on different ROS domains (0 and 42). They talk only through the V2V UDP link, not through shared ROS topics. The link is **one-way, ROSbot 3 → QCar 2**. A reverse command channel exists in `v2v_receiver_node.py`, but it's disabled while `command_ip` is empty.
-
----
-
 ## Dashboard
 
-Open **`http://192.168.0.53:8090/`** (QCar 2) or **`http://<rosbot-server>:8090/`** (ROSbot 3) in a browser on the lab network. Both instances show the same page for both robots:
+Open **`http://192.168.0.53:8090/`** in a browser on the lab network. The page shows:
 
 - Status pills for each robot
 - Both camera feeds, at equal fixed height
 - V2V link and motion tables, with the **Gap (m)** row highlighted
 - Safety state, and QCar 2's encounter state
 - Active ROS nodes on each robot
-- Live track map (reference path, QCar 2 in green, ROSbot 3 in orange)
+- Live track map (reference path, QCar 2 in green, the other vehicle in orange)
 
 The layout fits one screen so it can be screen-recorded. Below 1100 px width it switches back to a scrolling layout.
 
@@ -144,20 +118,6 @@ source /opt/ros/humble/setup.bash && source install/setup.bash && export ROS_DOM
 python3 v2v_dashboard.py --role qcar2 --peer-host 192.168.0.100 \
   --trajectory ~/ros2_ws_video/track_run_cartographer_final_leftshift.npy
 ```
-
----
-
-## Workspaces on the car
-
-| Workspace | Use |
-| --- | --- |
-| `~/ros2_ws_video` | **Current.** The demo build this branch contains: LiDAR-only overtaking, V2V follower off. `run_qcar2_stack.sh` and `path_mpc`'s trajectory path both point here. |
-| `~/ros2_ws_sami` | Previous tuning (V2V follower on, lead check before returning to lane). Same code as commit `af5b59b`. |
-| `~/ros2_ws_izhan` | Clean fallback that is known to overtake reliably. Don't develop in it. |
-
-The commands in this README use `ros2_ws_video`. To use another workspace, swap the directory name; nothing else changes.
-
-The reference trajectory `track_run_cartographer_final_leftshift.npy` is kept in the workspace on the car. It isn't in this repository.
 
 ---
 
@@ -220,7 +180,7 @@ The reference trajectory `track_run_cartographer_final_leftshift.npy` is kept in
 | `path_mpc` | Follows the reference path with a nonlinear MPC (kinematic bicycle model, CasADi/IPOPT). Applies the overtake lateral offset and speed limits. |
 | `lidar_overtake` | Splits the LiDAR scan into front, left, right and emergency sectors, and runs the overtake state machine. |
 | `depth_emergency_node` | Stops the car when the depth camera sees something inside its region of interest. |
-| `v2v_receiver` | Receives ROSbot 3's state over UDP. Computes the along-path gap between the two robots, bumper to bumper. |
+| `v2v_receiver` | Receives the other vehicle's state over UDP. Computes the along-path gap between the two vehicles, bumper to bumper. |
 | `sound_node` | Plays audio for events such as detecting an obstacle. |
 | `amcl_nudge`, `lane_centering_node`, `reverse_trailer_mpc` | Older or experimental; not started by the launcher. |
 
@@ -251,14 +211,14 @@ RPLidar ──▶ Cartographer (frozen map) ──▶ map → base_link ──�
                                                                 │
 RealSense D435i ──▶ depth_emergency_node ── emergency stop ─────┤
                                                                 │
-ROSbot 3 ── UDP ──▶ v2v_receiver ── gap, follow-speed cap ──────┘  (follow cap unused in the demo build)
+V2V peer ── UDP ──▶ v2v_receiver ── gap, follow-speed cap ──────┘
 ```
 
 ---
 
 ## Tuning switches
 
-These are the values that set how the demo build behaves. All are in `src/qcar_science_night_pkg/qcar_science_night_pkg/`.
+These values set how overtaking and following behave. All are in `src/qcar_science_night_pkg/qcar_science_night_pkg/`.
 
 | Setting | File | Value | Effect |
 | --- | --- | --- | --- |
@@ -267,7 +227,7 @@ These are the values that set how the demo build behaves. All are in `src/qcar_s
 | `overtake_start_min_distance` | `lidar_overtake_node.py` | `0.80` m | Commit floor (plus a 0.05 m margin). Keep it well above the 0.70 m emergency distance, or the emergency stop triggers before an overtake can start. |
 | `overtake_offset` | `lidar_overtake_node.py` | `0.45` m | Lateral offset during the pass. The left lane's middle is 0.40 m, since lanes are 0.40 m wide. Don't go below ~0.40, or the two robots get too close. |
 | `no_obstacle_confirm_required` | `lidar_overtake_node.py` | `15` | Ticks with a clear front before returning to the lane. This is the only delay before cutting back in. |
-| `V2V_FOLLOW_SPEED_CAP_ENABLED` | `path_mpc_node.py` | `False` | When `True`, ROSbot 3's speed and gap limit QCar 2's speed while following. |
+| `V2V_FOLLOW_SPEED_CAP_ENABLED` | `path_mpc_node.py` | `False` | When `True`, the other vehicle's speed and gap limit QCar 2's speed while following. |
 | `v_curve_min` | `path_mpc_node.py` | `0.60` m/s | Keep above **0.5625**. Below that, the MPC preview halves from 1.50 m to 0.75 m and the steering oscillates in tight curves. |
 | `CURVE_AWARE_ROI_ENABLED` | `depth_emergency_node.py` | `True` | Narrows the depth-camera region in curves so walls on the inside don't trigger stops. |
 
@@ -487,12 +447,6 @@ Inside the container, run `export ROS_DOMAIN_ID=42 && rviz2`. Set **Fixed Frame 
 | No sound | Apply the [audio fix](#audio-fix-alsa-levels-reset-on-every-power-cycle). The levels reset on every power cycle. |
 
 ---
-
-## Further documentation
-
-- `notes.md`: key findings and the full issues/fixes history, including why the stop procedure works the way it does (Issues 9 and 17).
-- `memory.md`: session-by-session log of changes and hardware tests.
-- `DEVELOPER_README.md`: developer notes.
 
 ## Acknowledgements
 
